@@ -212,6 +212,13 @@
 - 右上角悬浮日志（手机默认隐藏，可切换）
 - 操作面板/手牌区可拖动；「布局」复位所有面板与手牌偏移
 
+### 3.2.1 界面增强偏好
+
+- 数据层：`src/utils/uiPrefs.js`，键 `cgm_ui_prefs`，非法值回退默认。
+- 三个开关：`richCards` 角色卡信息强化（默认开）、`tableCarving` 桌面雕纹（默认关）、`bigHud` 顶部大字读数（默认开）。
+- 设置页「界面增强」修改后写 localStorage，并派发 `cgm:ui-prefs`；`GameBoard` 监听事件并把 `data-rich-cards / data-table-carving / data-big-hud` 写到 `<html>`。
+- CSS 只使用真实存在的类名：`.hp-bar[data-hp]` 数值体力、`.player-area` / `.self-character` 卡框、`.table-hub::before/::after` 桌纹、`.phase-info` / `.deck-info` 大字读数；不改规则与联机状态。
+
 ### 3.3 动效清单（避免退回“简单漂浮”）
 
 - 主菜单剑徽：周期性挥砍 + 环形光轨旋转 + 火花迸发
@@ -403,7 +410,7 @@ test.bat          # 或 npm run test:all
 | 套件 | 命令 | 当前结果 |
 |------|------|----------|
 | 引擎 | `node scripts/run-smoke.mjs` | 474/474 |
-| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1708/1708 |
+| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1721/1721 |
 | 中继协议 | `node scripts/net-smoke.mjs` | 37/37 |
 | 联机房主集成 | `node scripts/run-online-host-smoke.mjs` | 47/47 |
 | 浏览器实时交互 | `node scripts/headless-live-check.mjs` | 53/53 |
@@ -507,7 +514,7 @@ node node_modules/vite/bin/vite.js build
 - node scripts/run-smoke.mjs
 - node scripts/run-ui-smoke.mjs
 - node scripts/net-smoke.mjs
-确认当前状态（期望 474/1708/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
+确认当前状态（期望 474/1721/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
 关键约束：
 - 初始内置 10 名经典武将（cls_ 前缀）+ 基础角色；用户仍可自定义。
 - 墨玉鎏金视觉 + 宣纸牌面；手牌在底部，角色卡在旁边；手牌可拖动/整理。

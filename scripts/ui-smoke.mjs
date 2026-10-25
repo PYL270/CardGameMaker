@@ -16,6 +16,14 @@ import {
   buildQuickPlayConfigs,
 } from '../src/components/Menu/quickPlay.js';
 import Settings from '../src/components/Menu/Settings.jsx';
+import {
+  UI_PREFS_KEY,
+  DEFAULT_UI_PREFS,
+  normalizeUiPrefs,
+  readUiPrefs,
+  saveUiPrefs,
+  uiPrefAttrs,
+} from '../src/utils/uiPrefs.js';
 import MobileApkPanel, {
   normalizeApkInfo,
   normalizeApiStatus,
@@ -2208,6 +2216,13 @@ async function main() {
     player: backPlayer, isSelf: false, isCurrent: false, selectable: false,
     teamMode: 'ffa', showDistance: false,
   }), ['card-backs', 'mini-back', '手牌 3']);
+  const prefCardHtml = renderToString(React.createElement(PlayerArea, {
+    player: { ...backPlayer, hp: 3, maxHp: 4 },
+    isSelf: false, isCurrent: false, selectable: false,
+    teamMode: 'ffa', showDistance: false,
+  }));
+  assert(prefCardHtml.includes('data-hp="3"') && prefCardHtml.includes('data-max-hp="4"'),
+    '角色卡体力条携带 data-hp / data-max-hp，供界面增强显示数值');
   assert(appCssCard.includes('.game-card:hover') && appCssCard.includes('--card-lift: -6px'),
     'hover 抬升仍保留');
   assert(appCssCard.includes('.hand-zone .game-card:hover')
@@ -3614,11 +3629,42 @@ async function main() {
   assert(apkMobileHtml.includes('手机版内不支持一键打包') && apkMobileHtml.includes('电脑端'),
     '手机版 APK 提示');
 
+  // 界面增强偏好：默认值 / 归一化 / 持久化 / data 属性
+  assert(DEFAULT_UI_PREFS.richCards === true && DEFAULT_UI_PREFS.tableCarving === false
+    && DEFAULT_UI_PREFS.bigHud === true, '界面增强默认值：角色卡/大字开，桌面雕纹关');
+  assert(normalizeUiPrefs({ richCards: false, bigHud: 'bad' }).richCards === false
+    && normalizeUiPrefs({ richCards: false, bigHud: 'bad' }).bigHud === true,
+  '界面增强非法值回退默认，布尔值保留');
+  const prefStorage = (() => {
+    const m = new Map();
+    return {
+      getItem: k => (m.has(k) ? m.get(k) : null),
+      setItem: (k, v) => m.set(k, String(v)),
+      removeItem: k => m.delete(k),
+    };
+  })();
+  saveUiPrefs({ richCards: false, tableCarving: true, bigHud: false }, prefStorage);
+  assert(readUiPrefs(prefStorage).tableCarving === true && readUiPrefs(prefStorage).bigHud === false,
+    '界面增强写入并读回 localStorage');
+  assert(prefStorage.getItem(UI_PREFS_KEY).includes('"tableCarving":true'),
+    '界面增强持久化键 cgm_ui_prefs 内容可读');
+  const prefAttrs = uiPrefAttrs({ richCards: false, tableCarving: true, bigHud: false });
+  assert(prefAttrs['data-rich-cards'] === 'off'
+    && prefAttrs['data-table-carving'] === 'on'
+    && prefAttrs['data-big-hud'] === 'off',
+  '界面增强生成 html data-* 属性');
+
   renderPage('Settings(手机 APK)', React.createElement(Settings, { navigate: noop }),
-    ['设置', '手机 APK', '一键打包']);
+    ['设置', '手机 APK', '一键打包', '界面增强', '角色卡信息强化', '桌面雕纹', '顶部大字读数']);
   const settingsMobileSrc = readFileSync('src/components/Menu/Settings.jsx', 'utf8');
   assert(settingsMobileSrc.includes('MobileApkPanel') && settingsMobileSrc.includes('MobileNotice'),
     'Settings 接入 APK 面板与手机提示');
+  assert(settingsMobileSrc.includes('UI_PREF_ITEMS') && settingsMobileSrc.includes('applyUiPrefs')
+    && settingsMobileSrc.includes("'cgm:ui-prefs'"),
+  'Settings 接入界面增强偏好并实时广播');
+  const uiPrefsBoardSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
+  assert(uiPrefsBoardSrc.includes('uiPrefAttrs') && uiPrefsBoardSrc.includes("'cgm:ui-prefs'"),
+    'GameBoard 监听界面增强偏好并写入 html data-*');
   const appCssApk = readFileSync('src/App.css', 'utf8');
   assert(appCssApk.includes('.apk-panel') && appCssApk.includes('.apk-progress-bar')
     && appCssApk.includes('.apk-qr') && appCssApk.includes('.mobile-capability-notice'),
@@ -3626,6 +3672,11 @@ async function main() {
   assert(appCssApk.includes('.apk-explainer') && appCssApk.includes('.apk-complete')
     && appCssApk.includes('.apk-history') && appCssApk.includes('.apk-history-item'),
   'App.css 含一键打包说明/完成/历史样式');
+  assert(appCssApk.includes('html[data-rich-cards="on"]')
+    && appCssApk.includes('html[data-table-carving="on"]')
+    && appCssApk.includes('html[data-big-hud="on"]')
+    && appCssApk.includes('.ui-pref-row'),
+  'App.css 含界面增强三组样式');
 
   console.log('\n[44] 出牌手感：悬浮确认条 / 推荐高亮 / AI 思考节奏');
   const barHtml = renderToString(React.createElement(QuickPlayBar, {

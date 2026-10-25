@@ -16,10 +16,26 @@ import {
   applyPreset,
   defaultLayout,
 } from '../GameBoard/layoutConfig';
+import {
+  UI_PREF_ITEMS,
+  readUiPrefs,
+  saveUiPrefs,
+  applyUiPrefs,
+} from '../../utils/uiPrefs';
 
 export default function Settings({ navigate }) {
   const [layout, setLayout] = useState(() => loadLayout());
   const [showLayoutPanel, setShowLayoutPanel] = useState(false);
+  const [uiPrefs, setUiPrefs] = useState(() => readUiPrefs());
+  const updateUiPref = (key, value) => {
+    const next = { ...uiPrefs, [key]: value };
+    setUiPrefs(next);
+    saveUiPrefs(next);
+    applyUiPrefs(next);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('cgm:ui-prefs', { detail: next }));
+    }
+  };
 
   const changeLayout = (patch) => {
     setLayout(prev => {
@@ -171,6 +187,28 @@ export default function Settings({ navigate }) {
             </button>
             <button className="btn btn-small" onClick={resetLayout}>恢复默认布局</button>
           </div>
+        </div>
+
+        <div className="panel settings-section">
+          <h3>界面增强</h3>
+          <p className="settings-tip">
+            只影响你自己的观感，不改动规则与联机数据；开关会立即保存，进入对局后生效。
+          </p>
+          <div className="ui-pref-list">
+            {UI_PREF_ITEMS.map(item => (
+              <label key={item.key} className="ui-pref-row">
+                <span className="ui-pref-text">
+                  <b>{item.label}</b>
+                  <small>{item.hint}</small>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={uiPrefs[item.key] !== false}
+                  onChange={e => updateUiPref(item.key, e.target.checked)} />
+              </label>
+            ))}
+          </div>
+          <p className="settings-tip">默认开启角色卡强化与大字读数；桌面雕纹默认关闭，避免遮挡牌面。</p>
         </div>
 
         <div className="panel settings-section">

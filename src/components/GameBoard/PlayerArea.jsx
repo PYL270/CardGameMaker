@@ -57,7 +57,7 @@ export default function PlayerArea({
           </div>
           {player.character && <span className="char-name">{player.character.name}</span>}
           {/* 体力条 */}
-          <div className="hp-bar">
+          <div className="hp-bar" data-hp={Math.max(0, player.hp)} data-max-hp={player.maxHp}>
             {hpArray.map((filled, i) => (
               <span key={i} className={`hp-dot ${filled ? 'filled' : 'empty'}`} title={filled ? '体力' : '失去体力'}>
                 <Icon name="heart" size={12} />

@@ -71,7 +71,7 @@ export default function SelfCharacterCard({
             {teamModeOn && <span className="team-chip ally">我方</span>}
           </span>
           <span className="self-char-name">{character?.name || '基础角色'}</span>
-          <div className="hp-bar">
+          <div className="hp-bar" data-hp={Math.max(0, player.hp)} data-max-hp={player.maxHp}>
             {hpArray.map((filled, i) => (
               <span key={i} className={`hp-dot ${filled ? 'filled' : 'empty'}`} title={filled ? '体力' : '失去体力'}>
                 <Icon name="heart" size={12} />

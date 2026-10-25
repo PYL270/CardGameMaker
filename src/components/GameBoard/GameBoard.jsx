@@ -44,6 +44,7 @@ import {
   layoutStyle,
   shouldOpenLog,
 } from './layoutConfig';
+import { readUiPrefs, normalizeUiPrefs, uiPrefAttrs } from '../../utils/uiPrefs';
 import ResultOverlay from './ResultOverlay';
 import CardGuide from './CardGuide';
 import CardFace from './CardFace';
@@ -137,6 +138,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   const [layout, setLayout] = useState(() => (
     initialLayout ? normalizeLayout(initialLayout) : loadLayout()
   ));
+  const [uiPrefs, setUiPrefs] = useState(() => readUiPrefs());
   const [showLayoutSettings, setShowLayoutSettings] = useState(false);
   const [showGameSettings, setShowGameSettings] = useState(false);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
@@ -209,6 +211,23 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   useEffect(() => {
     saveLayout(layout);
   }, [layout]);
+
+  // 界面增强偏好：挂到 <html>，供全局 CSS 使用；设置页改动可实时同步
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const attrs = uiPrefAttrs(uiPrefs);
+    Object.entries(attrs).forEach(([key, value]) => {
+      document.documentElement.setAttribute(key, value);
+    });
+  }, [uiPrefs]);
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const onPrefs = (event) => {
+      setUiPrefs(normalizeUiPrefs(event?.detail || readUiPrefs()));
+    };
+    window.addEventListener('cgm:ui-prefs', onPrefs);
+    return () => window.removeEventListener('cgm:ui-prefs', onPrefs);
+  }, []);
 
   // 日志位置切到“隐藏”时收起
   useEffect(() => {

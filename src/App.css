@@ -5650,3 +5650,101 @@ svg.ui-icon { shape-rendering: geometricPrecision; }
 [data-platform="desktop"] .hand-cards::-webkit-scrollbar-thumb:hover {
   background: rgba(214, 185, 110, .55);
 }
+
+/* ============================================================
+   界面增强（设置 → 界面增强）
+   只影响观感，不改规则；通过 <html data-*> 控制，可随时关闭
+   ============================================================ */
+.ui-pref-list { display: flex; flex-direction: column; gap: 9px; margin: 4px 0 10px; }
+.ui-pref-row {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 14px; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(214, 185, 110, .14);
+  background: rgba(255, 255, 255, .018);
+  cursor: pointer;
+  transition: border-color .18s ease, background .18s ease;
+}
+.ui-pref-row:hover { border-color: rgba(214, 185, 110, .34); background: rgba(214, 185, 110, .05); }
+.ui-pref-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.ui-pref-text b { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.ui-pref-text small { font-size: 11.5px; line-height: 1.5; color: var(--text-secondary); }
+.ui-pref-row input[type="checkbox"] { margin-top: 2px; flex: 0 0 auto; accent-color: var(--accent-gold); }
+
+/* 角色卡信息强化：鎏金卡框 + 数值体力 + 装备槽描边 */
+html[data-rich-cards="on"] .game-board .other-players .player-area,
+html[data-rich-cards="on"] .game-board .self-character {
+  border-color: rgba(214, 185, 110, .38);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .5), inset 0 0 26px rgba(214, 185, 110, .045);
+}
+html[data-rich-cards="on"] .game-board .other-players .player-area.current {
+  border-color: rgba(247, 201, 72, .95);
+}
+html[data-rich-cards="on"] .game-board .hp-bar {
+  align-items: center;
+}
+html[data-rich-cards="on"] .game-board .hp-bar::after {
+  content: attr(data-hp) " / " attr(data-max-hp);
+  margin-left: 4px;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: .04em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(214, 185, 110, .22);
+}
+html[data-rich-cards="on"] .game-board .equip-slot.filled,
+html[data-rich-cards="on"] .game-board .self-equip-slot.filled {
+  border-color: rgba(214, 185, 110, .5);
+  background: linear-gradient(180deg, rgba(214, 185, 110, .1), rgba(20, 17, 12, .6));
+}
+html[data-rich-cards="on"] .game-board .self-avatar,
+html[data-rich-cards="on"] .game-board .player-avatar {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08), 0 0 0 1px rgba(214, 185, 110, .28), 0 4px 12px rgba(0, 0, 0, .5);
+}
+
+/* 桌面雕纹：加深中央桌面层次，罗盘与团纹更像实体牌桌 */
+html[data-table-carving="on"] .game-board .hub-rose {
+  opacity: .34;
+  filter: drop-shadow(0 0 10px rgba(214, 185, 110, .16));
+}
+html[data-table-carving="on"] .game-board .table-hub::before {
+  background:
+    repeating-radial-gradient(circle at 50% 50%, rgba(214, 185, 110, .055) 0 1px, transparent 1px 17px),
+    radial-gradient(circle, rgba(30, 26, 18, .96) 0%, rgba(20, 18, 13, .93) 50%, rgba(9, 11, 15, .66) 76%, transparent 88%);
+  box-shadow: inset 0 0 80px rgba(0, 0, 0, .68), inset 0 0 0 1px rgba(214, 185, 110, .16), 0 0 52px rgba(0, 0, 0, .52);
+}
+html[data-table-carving="on"] .game-board .table-hub::after {
+  border-color: rgba(214, 185, 110, .4);
+  box-shadow: 0 0 42px rgba(214, 185, 110, .15), inset 0 0 56px rgba(214, 185, 110, .07);
+}
+
+/* 顶部大字读数：回合/牌堆/阶段作为主读数，小屏自动收敛 */
+html[data-big-hud="on"] .game-board .board-header .phase-info {
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  color: #f4ecd8;
+}
+html[data-big-hud="on"] .game-board .board-header .deck-info {
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 4px 11px;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+html[data-big-hud="on"] .game-board .hub-round {
+  font-size: 12px;
+  color: var(--gold-bright);
+  opacity: .92;
+}
+@media (max-width: 1279px) {
+  html[data-big-hud="on"] .game-board .board-header .phase-info { font-size: 13.5px; }
+}
+@media (max-width: 720px) {
+  .ui-pref-row { padding: 9px 10px; gap: 10px; }
+  .ui-pref-text b { font-size: 12.5px; }
+  .ui-pref-text small { font-size: 11px; }
+  html[data-big-hud="on"] .game-board .board-header .phase-info { font-size: 12px; }
+  html[data-big-hud="on"] .game-board .board-header .deck-info { font-size: 12px; padding: 3px 8px; }
+}
