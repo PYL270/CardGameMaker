@@ -1,19 +1,115 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { background, BG_PRESETS } from '../../appearance/backgroundManager';
+import Select from '../ui/Select';
+import { alertDialog, confirmDialog } from '../../utils/dialogService';
+import {
+  THEME_DEFAULTS,
+  THEME_TABLE_OPTIONS,
+  THEME_CARD_BACK_OPTIONS,
+  THEME_BORDER_OPTIONS,
+  THEME_FONT_OPTIONS,
+  normalizeThemeStudio,
+  loadThemeStudio,
+  saveThemeStudio,
+  applyThemeStudio,
+  encodeThemeCode,
+  decodeThemeCode,
+} from '../../utils/themeStudio';
 
 /**
- * 背景设置：内置动态场景 + 自定义背景上传
+ * 背景设置 + 主题工坊 2.0
  */
 export default function AppearanceSettings({ onBack }) {
   const [config, setConfig] = useState(() => background.getConfig());
   const [imageUrl, setImageUrl] = useState(() => background.getImageUrl());
   const [fileInfo, setFileInfo] = useState(() => background.getFileInfo());
+  const [studio, setStudio] = useState(() => loadThemeStudio());
+  const [themeCode, setThemeCode] = useState('');
+  const [studioNotice, setStudioNotice] = useState('');
 
   useEffect(() => background.subscribe(() => {
     setConfig(background.getConfig());
     setImageUrl(background.getImageUrl());
     setFileInfo(background.getFileInfo());
   }), []);
+
+  useEffect(() => {
+    applyThemeStudio(studio);
+  }, []);
+
+  const updateStudio = (patch, notice = '主题已应用并保存') => {
+    const next = normalizeThemeStudio({ ...studio, ...patch, enabled: patch.enabled ?? true });
+    setStudio(next);
+    applyThemeStudio(next);
+    saveThemeStudio(next);
+    setStudioNotice(notice);
+  };
+
+  const copyStudioCode = async () => {
+    const code = encodeThemeCode(studio);
+    if (!code) {
+      await alertDialog({ title: '主题码', message: '主题码生成失败，请重试。', kicker: 'THEME STUDIO' });
+      return;
+    }
+    setThemeCode(code);
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(code);
+        setStudioNotice('主题码已复制，可发给其他玩家导入');
+        return;
+      }
+    } catch {
+      // 权限/非安全上下文失败 → 游戏内提示，仍把主题码留在下方文本框
+    }
+    await alertDialog({
+      title: '主题码已生成',
+      message: `无法自动写入剪贴板。主题码已填在下方文本框，可手动复制：\n${code}`,
+      kicker: 'THEME STUDIO',
+    });
+    setStudioNotice('主题码已填入下方文本框');
+  };
+
+  const importStudioCode = async () => {
+    const decoded = decodeThemeCode(themeCode);
+    if (!decoded) {
+      await alertDialog({
+        title: '主题码无法解析',
+        message: '请确认粘贴的是完整的 CGM-THEME-1:... 主题码，且没有截断或混入其他文字。',
+        kicker: 'THEME STUDIO',
+      });
+      setStudioNotice('导入失败：主题码格式不正确');
+      return;
+    }
+    setStudio(decoded);
+    applyThemeStudio(decoded);
+    saveThemeStudio(decoded);
+    setStudioNotice('主题码导入成功，已应用并保存');
+  };
+
+  const resetStudio = async () => {
+    const ok = await confirmDialog({
+      title: '恢复默认主题',
+      message: '将关闭自定义主题，并恢复墨玉鎏金默认外观。当前主题码不会保留。',
+      confirmText: '恢复默认',
+      danger: false,
+      kicker: 'THEME STUDIO',
+    });
+    if (!ok) return;
+    const next = normalizeThemeStudio(THEME_DEFAULTS);
+    setStudio(next);
+    applyThemeStudio(next);
+    saveThemeStudio(next);
+    setThemeCode('');
+    setStudioNotice('已恢复默认主题');
+  };
+
+  const disableStudio = () => {
+    const next = normalizeThemeStudio({ ...studio, enabled: false });
+    setStudio(next);
+    applyThemeStudio(next);
+    saveThemeStudio(next);
+    setStudioNotice('自定义主题已关闭，原有墨玉鎏金外观恢复');
+  };
 
   const upload = useCallback((file) => {
     if (file) background.importImage(file);
@@ -101,6 +197,126 @@ export default function AppearanceSettings({ onBack }) {
               onChange={e => background.setMotion(e.target.checked)} />
             <span>启用动态效果（流云 / 粒子 / 缓慢推移）</span>
           </label>
+        </section>
+
+        <section className="bg-section theme-studio-section">
+          <div className="bg-section-title">主题工坊 2.0</div>
+          <p className="theme-studio-lead">
+            自定义主色、桌面材质、牌背、边框与字体；修改即时应用到整张牌桌，并保存在本机。
+          </p>
+
+          <div className="theme-studio-grid">
+            <label className="theme-color-field">
+              <span>主色</span>
+              <input
+                type="color"
+                value={studio.accent}
+                onChange={e => updateStudio({ accent: e.target.value })}
+                aria-label="主题主色"
+              />
+              <code>{studio.accent}</code>
+            </label>
+            <label className="theme-color-field">
+              <span>辅色</span>
+              <input
+                type="color"
+                value={studio.accent2}
+                onChange={e => updateStudio({ accent2: e.target.value })}
+                aria-label="主题辅色"
+              />
+              <code>{studio.accent2}</code>
+            </label>
+          </div>
+
+          <div className="theme-studio-grid theme-studio-selects">
+            <label className="theme-select-field">
+              <span>桌面材质</span>
+              <Select value={studio.table} onChange={e => updateStudio({ table: e.target.value })}>
+                {THEME_TABLE_OPTIONS.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
+              </Select>
+              <small>{THEME_TABLE_OPTIONS.find(o => o.id === studio.table)?.desc}</small>
+            </label>
+            <label className="theme-select-field">
+              <span>牌背纹理</span>
+              <Select value={studio.cardBack} onChange={e => updateStudio({ cardBack: e.target.value })}>
+                {THEME_CARD_BACK_OPTIONS.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
+              </Select>
+              <small>{THEME_CARD_BACK_OPTIONS.find(o => o.id === studio.cardBack)?.desc}</small>
+            </label>
+            <label className="theme-select-field">
+              <span>卡牌 / 面板描边</span>
+              <Select value={studio.border} onChange={e => updateStudio({ border: e.target.value })}>
+                {THEME_BORDER_OPTIONS.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
+              </Select>
+              <small>{THEME_BORDER_OPTIONS.find(o => o.id === studio.border)?.desc}</small>
+            </label>
+            <label className="theme-select-field">
+              <span>标题字体</span>
+              <Select value={studio.font} onChange={e => updateStudio({ font: e.target.value })}>
+                {THEME_FONT_OPTIONS.map(option => (
+                  <option key={option.id} value={option.id}>{option.name}</option>
+                ))}
+              </Select>
+              <small>{THEME_FONT_OPTIONS.find(o => o.id === studio.font)?.desc}</small>
+            </label>
+          </div>
+
+          <div className="theme-studio-live">
+            <div
+              className="theme-preview"
+              data-studio-table={studio.table}
+              data-studio-card-back={studio.cardBack}
+              data-studio-border={studio.border}
+              data-studio-font={studio.font}
+              style={{ '--preview-accent': studio.accent, '--preview-accent-2': studio.accent2 }}>
+              <div className="theme-preview-table">
+                <span className="theme-preview-title">墨玉鎏金 · 预览</span>
+                <div className="theme-preview-cards">
+                  <div className="theme-preview-card">
+                    <span className="theme-preview-suit">♠</span>
+                    <b>杀</b>
+                    <small>宣纸牌面</small>
+                  </div>
+                  <div className="theme-preview-back"><i>将</i></div>
+                </div>
+              </div>
+              <div className="theme-preview-meta">
+                <strong>{studio.enabled ? '自定义主题已启用' : '自定义主题已关闭'}</strong>
+                <span>主色 {studio.accent} · 辅色 {studio.accent2}</span>
+                <span>{THEME_TABLE_OPTIONS.find(o => o.id === studio.table)?.name} 桌面 · {THEME_CARD_BACK_OPTIONS.find(o => o.id === studio.cardBack)?.name} 牌背</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="theme-code-row">
+            <textarea
+              className="theme-code-input"
+              value={themeCode}
+              onChange={e => setThemeCode(e.target.value)}
+              placeholder="粘贴 CGM-THEME-1:... 主题码后点「导入」"
+              rows={2}
+              spellCheck={false}
+              aria-label="主题码"
+            />
+            <div className="theme-code-actions">
+              <button className="btn btn-small" onClick={copyStudioCode}>复制主题码</button>
+              <button className="btn btn-small" onClick={importStudioCode} disabled={!themeCode.trim()}>导入主题码</button>
+              <button className="btn btn-small" onClick={disableStudio} disabled={!studio.enabled}>关闭自定义</button>
+              <button className="btn btn-small btn-danger" onClick={resetStudio}>恢复默认</button>
+            </div>
+          </div>
+          <p className={`theme-studio-notice ${studioNotice.includes('失败') ? 'is-error' : ''}`} role="status">
+            {studioNotice || (studio.enabled ? '修改会立即应用并保存到本机。' : '当前使用默认墨玉鎏金外观；修改任意选项会重新启用自定义。')}
+          </p>
+          <p className="theme-studio-note">
+            主题码只包含外观参数，不包含武将、卡牌或账号数据；导入后可继续微调。
+          </p>
         </section>
 
         <p className="bg-tip">

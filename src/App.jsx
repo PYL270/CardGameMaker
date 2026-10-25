@@ -20,6 +20,7 @@ import SceneBackground from './components/GameBoard/SceneBackground';
 import GameDialog from './components/ui/GameDialog';
 import { audio } from './audio/audioManager';
 import { applySavedFont } from './appearance/fontManager';
+import { loadThemeStudio, applyThemeStudio } from './utils/themeStudio';
 import { LAYOUT_STORAGE_KEY, applyPreset, saveLayout } from './components/GameBoard/layoutConfig';
 import {
   parseLaunchParams,
@@ -31,6 +32,8 @@ import useGameStore from './store/gameStore';
 import { usePlatform, isTouchInput } from './utils/mobile';
 
 applySavedFont();
+// 主题工坊：启动即恢复本机主题（关闭时仅写 off，不覆盖原有三套 theme）
+applyThemeStudio(loadThemeStudio());
 
 const PAGES = {
   MENU: 'menu',

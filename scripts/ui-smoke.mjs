@@ -112,6 +112,22 @@ import HighlightReel, {
   normalizeHighlight,
   formatHighlightsForCopy,
 } from '../src/components/GameBoard/HighlightReel.jsx';
+import {
+  THEME_STORAGE_KEY,
+  THEME_DEFAULTS,
+  THEME_TABLE_OPTIONS,
+  THEME_CARD_BACK_OPTIONS,
+  THEME_BORDER_OPTIONS,
+  THEME_FONT_OPTIONS,
+  normalizeThemeStudio,
+  normalizeThemeColor,
+  loadThemeStudio,
+  saveThemeStudio,
+  applyThemeStudio,
+  encodeThemeCode,
+  decodeThemeCode,
+  themeOptionLabel,
+} from '../src/utils/themeStudio.js';
 import { buildEquipSlots, equipChoiceEntries, normalizeEquipLimit } from '../src/components/GameBoard/equipSlots.js';
 import { computeCardTilt, shouldEnableCardTilt, CARD_TILT_MAX_DEG } from '../src/components/GameBoard/cardTilt.js';
 import ArtStudio from '../src/components/Editor/ArtStudio.jsx';
@@ -4768,6 +4784,119 @@ async function main() {
     && appCssHighlight.includes('pointer-events: none'), '高光战报 CSS：黑边/时间线/非阻塞');
   assert(appCssHighlight.includes('prefers-reduced-motion')
     && appCssHighlight.includes('.director-shot,'), '高光战报 reduced-motion 降级');
+
+  console.log('\n[57] 主题工坊 2.0：归一化 / 主题码 / 持久化 / 实时预览');
+  assert(THEME_STORAGE_KEY === 'cgm_theme_studio', '主题工坊存储键');
+  assert(THEME_DEFAULTS.enabled === false && THEME_DEFAULTS.accent === '#d6b96e'
+    && THEME_DEFAULTS.accent2 === '#f0d894' && THEME_DEFAULTS.table === 'ink'
+    && THEME_DEFAULTS.cardBack === 'gold' && THEME_DEFAULTS.border === 'hairline'
+    && THEME_DEFAULTS.font === 'serif', '主题工坊默认值');
+  assert(THEME_TABLE_OPTIONS.map(o => o.id).join(',') === 'ink,wood,stone,jade'
+    && THEME_CARD_BACK_OPTIONS.map(o => o.id).join(',') === 'gold,ink,cloud,dragon'
+    && THEME_BORDER_OPTIONS.map(o => o.id).join(',') === 'hairline,double,none'
+    && THEME_FONT_OPTIONS.map(o => o.id).join(',') === 'serif,sans,calligraphy', '主题工坊选项清单');
+  const badTheme = normalizeThemeStudio({
+    enabled: 'yes', accent: 'red', accent2: '#abc', table: 'lava', cardBack: 'x',
+    border: 'fat', font: 'comic',
+  });
+  assert(badTheme.enabled === false && badTheme.accent === '#d6b96e'
+    && badTheme.accent2 === '#aabbcc' && badTheme.table === 'ink'
+    && badTheme.cardBack === 'gold' && badTheme.border === 'hairline'
+    && badTheme.font === 'serif', '主题非法值安全归一化（3 位色扩展）');
+  assert(normalizeThemeColor('#ABC') === '#aabbcc'
+    && normalizeThemeColor('  #123456 ') === '#123456'
+    && normalizeThemeColor('javascript:alert(1)') === THEME_DEFAULTS.accent, '主题颜色归一化/拒绝注入');
+
+  const fakeStore = (() => {
+    const data = new Map();
+    return {
+      data,
+      getItem: key => (data.has(key) ? data.get(key) : null),
+      setItem: (key, value) => data.set(key, String(value)),
+    };
+  })();
+  const savedTheme = saveThemeStudio({
+    enabled: true, accent: '#c0a15a', accent2: '#f4dea0',
+    table: 'jade', cardBack: 'dragon', border: 'double', font: 'calligraphy',
+  }, fakeStore);
+  assert(savedTheme.enabled && fakeStore.data.has(THEME_STORAGE_KEY), '主题保存到存储');
+  const loadedTheme = loadThemeStudio(fakeStore);
+  assert(loadedTheme.table === 'jade' && loadedTheme.cardBack === 'dragon'
+    && loadedTheme.border === 'double' && loadedTheme.font === 'calligraphy', '主题从存储恢复');
+  fakeStore.setItem(THEME_STORAGE_KEY, '{broken');
+  assert(loadThemeStudio(fakeStore).table === 'ink' && loadThemeStudio(fakeStore).enabled === false,
+    '损坏主题存储回退默认');
+
+  const fakeDoc = {
+    documentElement: {
+      attrs: {},
+      style: {
+        values: {},
+        setProperty(name, value) { this.values[name] = value; },
+      },
+      setAttribute(name, value) { this.attrs[name] = value; },
+    },
+  };
+  const applied = applyThemeStudio({
+    enabled: true, accent: '#b79b58', accent2: '#eed590',
+    table: 'wood', cardBack: 'cloud', border: 'none', font: 'sans',
+  }, fakeDoc);
+  const root = fakeDoc.documentElement;
+  assert(applied.enabled && root.attrs['data-theme-studio'] === 'on'
+    && root.attrs['data-studio-table'] === 'wood'
+    && root.attrs['data-studio-card-back'] === 'cloud'
+    && root.attrs['data-studio-border'] === 'none'
+    && root.attrs['data-studio-font'] === 'sans', '主题写入 html data 属性');
+  assert(root.style.values['--studio-accent'] === '#b79b58'
+    && root.style.values['--studio-accent-2'] === '#eed590'
+    && root.style.values['--studio-accent-soft'] === '#b79b5826', '主题写入 CSS 变量');
+  applyThemeStudio({ ...applied, enabled: false }, fakeDoc);
+  assert(fakeDoc.documentElement.attrs['data-theme-studio'] === 'off', '关闭自定义写 off 不删原主题');
+
+  const code = encodeThemeCode(applied);
+  assert(code.startsWith('CGM-THEME-1:') && code.length > 30, '主题码前缀');
+  const decoded = decodeThemeCode(code);
+  assert(decoded && decoded.enabled && decoded.accent === '#b79b58'
+    && decoded.table === 'wood' && decoded.cardBack === 'cloud'
+    && decoded.border === 'none' && decoded.font === 'sans', '主题码往返一致');
+  assert(decodeThemeCode(`  ${code.slice(0, 10)} \n ${code.slice(10)}  `)?.table === 'wood',
+    '主题码容忍空白');
+  assert(decodeThemeCode('CGM-THEME-1:not-base64-@@@') === null
+    && decodeThemeCode('随便一段文字') === null
+    && decodeThemeCode('') === null, '非法主题码安全返回 null');
+  assert(themeOptionLabel('table', 'jade') === '青玉'
+    && themeOptionLabel('font', 'sans') === '黑体'
+    && themeOptionLabel('cardBack', 'unknown') === '', '主题选项名称');
+
+  const themeAppearanceHtml = renderToString(React.createElement(AppearanceSettings, { onBack: noop }));
+  for (const text of ['主题工坊 2.0', '主色', '辅色', '桌面材质', '牌背纹理',
+    '卡牌 / 面板描边', '标题字体', '墨玉', '鎏金回纹', '细金边', '复制主题码',
+    '导入主题码', '恢复默认', '关闭自定义', 'theme-preview', 'theme-code-input']) {
+    assert(themeAppearanceHtml.includes(text), `主题工坊设置页含「${text}」`);
+  }
+  assert(themeAppearanceHtml.includes('type="color"') && themeAppearanceHtml.includes('<textarea')
+    && themeAppearanceHtml.includes('data-studio-table="ink"'), '主题工坊颜色/主题码/实时预览');
+  const themeSrc = readFileSync('src/utils/themeStudio.js', 'utf8');
+  assert(themeSrc.includes('CGM-THEME-1:') && themeSrc.includes('localStorage')
+    && themeSrc.includes('data-theme-studio') && themeSrc.includes('data-studio-table'),
+  '主题工坊模块持久化/应用逻辑');
+  const appJsxTheme = readFileSync('src/App.jsx', 'utf8');
+  assert(appJsxTheme.includes('loadThemeStudio') && appJsxTheme.includes('applyThemeStudio'),
+    'App 启动加载并应用主题');
+  const themeCss = readFileSync('src/App.css', 'utf8');
+  assert(themeCss.includes('html[data-theme-studio="on"] .game-board')
+    && themeCss.includes('--accent-gold: var(--studio-accent')
+    && themeCss.includes('--gold-bright: var(--studio-accent-2')
+    && themeCss.includes('[data-studio-table="wood"]')
+    && themeCss.includes('[data-studio-table="stone"]')
+    && themeCss.includes('[data-studio-table="jade"]')
+    && themeCss.includes('[data-studio-card-back="dragon"]')
+    && themeCss.includes('[data-studio-border="double"]')
+    && themeCss.includes('[data-studio-font="sans"]')
+    && themeCss.includes('--font-calligraphy: var(--font-cn)'), '主题 CSS 变量/材质/牌背/边框/字体');
+  assert(themeCss.includes('.theme-preview') && themeCss.includes('.theme-code-input')
+    && themeCss.includes('.theme-studio-section') && themeCss.includes('.theme-preview[data-studio-table="jade"]'),
+  '主题工坊预览/设置页样式');
 
   const boardCommandSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
   assert(boardCommandSrc.includes('showCommandPalette') && boardCommandSrc.includes('<CommandPalette')

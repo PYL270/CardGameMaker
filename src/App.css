@@ -6550,3 +6550,386 @@ input[type="range"]:disabled::-moz-range-thumb {
   }
   .director-shot { opacity: 1; }
 }
+
+/* ============================================================
+   主题工坊 2.0：牌桌外观变量 + 预览 + 设置页控件
+   ============================================================ */
+html[data-theme-studio="on"] .game-board {
+  --accent-gold: var(--studio-accent, #d6b96e);
+  --gold: var(--studio-accent, #d6b96e);
+  --gold-bright: var(--studio-accent-2, #f0d894);
+  --accent-gold-soft: var(--studio-accent-soft, rgba(214, 185, 110, .14));
+  --glass-border: var(--studio-accent-soft, rgba(214, 185, 110, .22));
+}
+
+/* 桌面材质：只给棋桌加一层低透明底纹，不覆盖场景背景 */
+html[data-theme-studio="on"][data-studio-table="ink"] .game-board {
+  background:
+    radial-gradient(ellipse at 50% 46%, rgba(24, 28, 34, .32), transparent 58%),
+    linear-gradient(180deg, rgba(3, 5, 9, .22), rgba(3, 5, 9, .38));
+}
+html[data-theme-studio="on"][data-studio-table="wood"] .game-board {
+  background:
+    repeating-linear-gradient(92deg, rgba(120, 83, 46, .055) 0 2px, transparent 2px 9px),
+    radial-gradient(ellipse at 50% 44%, rgba(80, 52, 28, .28), transparent 62%),
+    linear-gradient(180deg, rgba(35, 23, 13, .36), rgba(17, 11, 7, .5));
+}
+html[data-theme-studio="on"][data-studio-table="stone"] .game-board {
+  background:
+    linear-gradient(115deg, rgba(112, 124, 132, .07) 0 1px, transparent 1px 8px),
+    radial-gradient(ellipse at 48% 45%, rgba(45, 55, 62, .3), transparent 60%),
+    linear-gradient(180deg, rgba(16, 20, 23, .32), rgba(6, 8, 10, .46));
+}
+html[data-theme-studio="on"][data-studio-table="jade"] .game-board {
+  background:
+    radial-gradient(ellipse at 50% 44%, rgba(34, 74, 66, .3), transparent 62%),
+    linear-gradient(180deg, rgba(11, 30, 27, .34), rgba(4, 12, 11, .48));
+}
+html[data-theme-studio="on"] .game-board .board-center .table-hub::before {
+  background:
+    radial-gradient(circle, var(--studio-accent-soft, rgba(214, 185, 110, .1)), transparent 68%);
+}
+html[data-theme-studio="on"] .game-board .self-zone .hand-zone {
+  background:
+    linear-gradient(180deg, rgba(0, 0, 0, .06), rgba(0, 0, 0, .16));
+  border-radius: 14px;
+}
+html[data-theme-studio="on"] .game-board .self-character {
+  background:
+    linear-gradient(160deg, rgba(27, 30, 35, .95), rgba(9, 11, 15, .96)) padding-box,
+    linear-gradient(150deg, var(--studio-accent, #d6b96e), transparent 46%, var(--studio-accent-2, #f0d894)) border-box;
+  border-color: transparent;
+}
+html[data-theme-studio="on"][data-studio-table="wood"] .game-board .self-character,
+html[data-theme-studio="on"][data-studio-table="wood"] .game-board .other-players .player-area {
+  background:
+    linear-gradient(160deg, rgba(40, 28, 18, .96), rgba(17, 11, 7, .97)) padding-box,
+    linear-gradient(150deg, var(--studio-accent, #d6b96e), transparent 48%, rgba(120, 83, 46, .35)) border-box;
+}
+html[data-theme-studio="on"][data-studio-table="stone"] .game-board .self-character,
+html[data-theme-studio="on"][data-studio-table="stone"] .game-board .other-players .player-area {
+  background:
+    linear-gradient(160deg, rgba(31, 35, 38, .97), rgba(11, 13, 15, .98)) padding-box,
+    linear-gradient(150deg, rgba(150, 164, 170, .52), transparent 48%, rgba(90, 102, 108, .28)) border-box;
+}
+html[data-theme-studio="on"][data-studio-table="jade"] .game-board .self-character,
+html[data-theme-studio="on"][data-studio-table="jade"] .game-board .other-players .player-area {
+  background:
+    linear-gradient(160deg, rgba(16, 38, 34, .97), rgba(5, 14, 12, .98)) padding-box,
+    linear-gradient(150deg, var(--studio-accent, #d6b96e), transparent 48%, rgba(54, 120, 101, .34)) border-box;
+}
+html[data-theme-studio="on"] .game-board .other-players .player-area {
+  border-color: transparent;
+}
+html[data-theme-studio="on"] .game-board .board-header,
+html[data-theme-studio="on"] .game-board .action-panel {
+  border-color: var(--studio-accent-soft, rgba(214, 185, 110, .22));
+}
+
+/* 牌背纹理：牌背/迷你牌背/卜卦牌背统一换肤，只用 CSS 渐变 */
+html[data-theme-studio="on"][data-studio-card-back="gold"] .game-board .mini-back,
+html[data-theme-studio="on"][data-studio-card-back="gold"] .game-board .card-back {
+  background:
+    repeating-linear-gradient(45deg, rgba(212, 185, 120, .11) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(-45deg, rgba(212, 185, 120, .08) 0 1px, transparent 1px 6px),
+    linear-gradient(160deg, #1a2620, #0a110d);
+}
+html[data-theme-studio="on"][data-studio-card-back="ink"] .game-board .mini-back,
+html[data-theme-studio="on"][data-studio-card-back="ink"] .game-board .card-back {
+  background:
+    repeating-linear-gradient(0deg, rgba(214, 185, 110, .08) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, #121821, #070a0f);
+}
+html[data-theme-studio="on"][data-studio-card-back="cloud"] .game-board .mini-back,
+html[data-theme-studio="on"][data-studio-card-back="cloud"] .game-board .card-back {
+  background:
+    radial-gradient(ellipse at 22% 25%, rgba(196, 215, 224, .18), transparent 38%),
+    radial-gradient(ellipse at 78% 65%, rgba(160, 188, 204, .14), transparent 42%),
+    linear-gradient(160deg, #1c2a30, #0a1216);
+}
+html[data-theme-studio="on"][data-studio-card-back="dragon"] .game-board .mini-back,
+html[data-theme-studio="on"][data-studio-card-back="dragon"] .game-board .card-back {
+  background:
+    linear-gradient(45deg, rgba(214, 185, 110, .13) 25%, transparent 25% 75%, rgba(214, 185, 110, .13) 75%),
+    linear-gradient(45deg, rgba(214, 185, 110, .09) 25%, transparent 25% 75%, rgba(214, 185, 110, .09) 75%),
+    linear-gradient(160deg, #221b12, #0d0906);
+  background-size: 8px 8px, 8px 8px, auto;
+  background-position: 0 0, 4px 4px, 0 0;
+}
+html[data-theme-studio="on"][data-studio-card-back="ink"] .game-board .mini-back::before,
+html[data-theme-studio="on"][data-studio-card-back="cloud"] .game-board .mini-back::before,
+html[data-theme-studio="on"][data-studio-card-back="dragon"] .game-board .mini-back::before {
+  border-color: var(--studio-accent-soft, rgba(184, 147, 78, .3));
+  opacity: .65;
+}
+
+/* 边框：细金边 / 双线框 / 无边框 */
+html[data-theme-studio="on"][data-studio-border="hairline"] .game-board .game-card {
+  border-width: 1px;
+  border-color: var(--studio-accent, rgba(58, 44, 24, .55));
+}
+html[data-theme-studio="on"][data-studio-border="double"] .game-board .game-card {
+  border: 2px double var(--studio-accent, #d6b96e);
+  box-shadow:
+    inset 0 0 0 1px rgba(214, 185, 110, .16),
+    0 8px 18px rgba(0, 0, 0, .24);
+}
+html[data-theme-studio="on"][data-studio-border="double"] .game-board .player-area,
+html[data-theme-studio="on"][data-studio-border="double"] .game-board .self-character,
+html[data-theme-studio="on"][data-studio-border="double"] .game-board .action-panel,
+html[data-theme-studio="on"][data-studio-border="double"] .game-board .panel {
+  border: 2px double var(--studio-accent, #d6b96e);
+}
+html[data-theme-studio="on"][data-studio-border="none"] .game-board .game-card,
+html[data-theme-studio="on"][data-studio-border="none"] .game-board .player-area,
+html[data-theme-studio="on"][data-studio-border="none"] .game-board .self-character,
+html[data-theme-studio="on"][data-studio-border="none"] .game-board .action-panel,
+html[data-theme-studio="on"][data-studio-border="none"] .game-board .panel {
+  border-color: transparent;
+  outline: none;
+}
+
+/* 字体：只改对局内，设置页/主菜单保持可读 */
+html[data-theme-studio="on"][data-studio-font="sans"] .game-board {
+  --font-calligraphy: var(--font-cn);
+  --font-serif: var(--font-cn);
+}
+html[data-theme-studio="on"][data-studio-font="calligraphy"] .game-board {
+  --font-serif: var(--font-calligraphy);
+}
+html[data-theme-studio="on"][data-studio-font="calligraphy"] .game-board .hub-name,
+html[data-theme-studio="on"][data-studio-font="calligraphy"] .game-board .player-name,
+html[data-theme-studio="on"][data-studio-font="calligraphy"] .game-board .self-name {
+  font-family: var(--font-calligraphy);
+}
+
+/* 主题工坊设置页 */
+.theme-studio-section {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(214, 185, 110, .22);
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(214, 185, 110, .07), transparent 46%),
+    rgba(214, 185, 110, .025);
+}
+.theme-studio-lead {
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: -3px 0 12px;
+}
+.theme-studio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.theme-studio-selects { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.theme-color-field,
+.theme-select-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.theme-color-field {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(214, 185, 110, .17);
+  background: rgba(0, 0, 0, .18);
+}
+.theme-color-field input[type="color"] {
+  width: 34px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(214, 185, 110, .35);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.theme-color-field code {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--gold-bright);
+  font-family: var(--font-num, 'Consolas', monospace);
+}
+.theme-select-field small {
+  min-height: 26px;
+  font-size: 9.5px;
+  line-height: 1.4;
+  color: var(--dim, #8a8577);
+}
+.theme-studio-live {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 2px 0 12px;
+}
+.theme-preview {
+  display: flex;
+  align-items: stretch;
+  gap: 14px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(214, 185, 110, .18);
+  background: rgba(0, 0, 0, .22);
+}
+.theme-preview-table {
+  flex: 1;
+  min-height: 104px;
+  padding: 9px 12px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  background:
+    radial-gradient(ellipse at 50% 50%, rgba(30, 34, 38, .5), transparent 66%),
+    linear-gradient(180deg, rgba(5, 7, 10, .7), rgba(10, 12, 15, .82));
+}
+.theme-preview[data-studio-table="wood"] .theme-preview-table {
+  background:
+    repeating-linear-gradient(92deg, rgba(120, 83, 46, .08) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, rgba(39, 26, 15, .92), rgba(17, 11, 7, .96));
+}
+.theme-preview[data-studio-table="stone"] .theme-preview-table {
+  background:
+    linear-gradient(115deg, rgba(140, 152, 160, .08) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, rgba(31, 35, 38, .94), rgba(11, 13, 15, .97));
+}
+.theme-preview[data-studio-table="jade"] .theme-preview-table {
+  background:
+    radial-gradient(ellipse at 50% 44%, rgba(34, 74, 66, .44), transparent 68%),
+    linear-gradient(180deg, rgba(14, 38, 34, .94), rgba(4, 12, 11, .97));
+}
+.theme-preview-title {
+  font-family: var(--font-calligraphy);
+  font-size: 12px;
+  letter-spacing: .12em;
+  color: var(--preview-accent-2, #f0d894);
+}
+.theme-preview-cards { display: flex; align-items: flex-end; gap: 9px; margin-top: auto; }
+.theme-preview-card {
+  width: 56px;
+  height: 78px;
+  padding: 5px;
+  border-radius: 6px;
+  border: 1px solid var(--preview-accent, #d6b96e);
+  background: linear-gradient(168deg, #f1e8d4, #d8c9a8);
+  color: #2a2318;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .35);
+}
+.theme-preview[data-studio-border="double"] .theme-preview-card {
+  border: 2px double var(--preview-accent, #d6b96e);
+  box-shadow: inset 0 0 0 1px rgba(184, 147, 78, .35), 0 6px 14px rgba(0, 0, 0, .35);
+}
+.theme-preview[data-studio-border="none"] .theme-preview-card { border-color: transparent; }
+.theme-preview-card b { font-family: var(--font-serif); font-size: 18px; font-weight: 500; }
+.theme-preview-card small { font-size: 7.5px; color: rgba(58, 44, 24, .72); }
+.theme-preview-suit { align-self: flex-start; font-size: 10px; }
+.theme-preview-back {
+  width: 56px;
+  height: 78px;
+  border-radius: 6px;
+  border: 1px solid rgba(184, 147, 78, .4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    repeating-linear-gradient(45deg, rgba(212, 185, 120, .11) 0 1px, transparent 1px 5px),
+    linear-gradient(160deg, #1a2620, #0a110d);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, .4);
+}
+.theme-preview[data-studio-card-back="ink"] .theme-preview-back {
+  background:
+    repeating-linear-gradient(0deg, rgba(214, 185, 110, .1) 0 1px, transparent 1px 7px),
+    linear-gradient(160deg, #121821, #070a0f);
+}
+.theme-preview[data-studio-card-back="cloud"] .theme-preview-back {
+  background:
+    radial-gradient(ellipse at 22% 25%, rgba(196, 215, 224, .2), transparent 38%),
+    linear-gradient(160deg, #1c2a30, #0a1216);
+}
+.theme-preview[data-studio-card-back="dragon"] .theme-preview-back {
+  background:
+    linear-gradient(45deg, rgba(214, 185, 110, .14) 25%, transparent 25% 75%, rgba(214, 185, 110, .14) 75%),
+    linear-gradient(45deg, rgba(214, 185, 110, .09) 25%, transparent 25% 75%, rgba(214, 185, 110, .09) 75%),
+    linear-gradient(160deg, #221b12, #0d0906);
+  background-size: 8px 8px, 8px 8px, auto;
+  background-position: 0 0, 4px 4px, 0 0;
+}
+.theme-preview-back i {
+  font-style: normal;
+  font-family: var(--font-calligraphy);
+  font-size: 20px;
+  color: var(--preview-accent, #d6b96e);
+}
+.theme-preview[data-studio-font="sans"] .theme-preview-title,
+.theme-preview[data-studio-font="sans"] .theme-preview-card b { font-family: var(--font-cn); }
+.theme-preview[data-studio-font="calligraphy"] .theme-preview-card b { font-family: var(--font-calligraphy); }
+.theme-preview-meta {
+  width: 188px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-left: 1px solid rgba(214, 185, 110, .14);
+}
+.theme-preview-meta strong {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--preview-accent-2, #f0d894);
+}
+.theme-preview-meta span { font-size: 9.5px; line-height: 1.45; color: var(--text-secondary); }
+.theme-code-row { display: flex; flex-direction: column; gap: 7px; }
+.theme-code-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 46px;
+  max-height: 120px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(214, 185, 110, .22);
+  background: rgba(0, 0, 0, .26);
+  color: var(--text-primary);
+  font-family: var(--font-num, 'Consolas', monospace);
+  font-size: 10px;
+  line-height: 1.5;
+  outline: none;
+}
+.theme-code-input:focus { border-color: rgba(214, 185, 110, .58); }
+.theme-code-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.theme-code-actions .btn { min-height: 34px; }
+.theme-studio-notice {
+  margin-top: 8px;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: #b9d2b0;
+}
+.theme-studio-notice.is-error { color: #e2a29b; }
+.theme-studio-note { margin-top: 3px; font-size: 9.5px; line-height: 1.55; color: var(--dim, #8a8577); }
+@media (max-width: 820px) {
+  .theme-studio-selects { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .theme-preview { flex-direction: column; }
+  .theme-preview-meta { width: auto; border-left: 0; border-top: 1px solid rgba(214, 185, 110, .14); }
+}
+@media (max-width: 520px) {
+  .theme-studio-grid,
+  .theme-studio-selects { grid-template-columns: 1fr; }
+  .theme-code-actions .btn { flex: 1; min-height: 40px; }
+  .theme-studio-section { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-preview-card,
+  .theme-preview-back { transition: none; }
+}
