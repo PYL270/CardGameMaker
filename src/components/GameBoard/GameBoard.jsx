@@ -1114,11 +1114,14 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
             selfPlayer={selfPlayer}
             players={displayPlayers}
             selectedTarget={selectedTarget}
+            selectedCards={selectedCards}
             currentPlayer={currentPlayer}
             pendingAction={pendingAction}
             currentPhase={currentPhase}
             phaseLabel={PHASE_NAMES[currentPhase] || currentPhase || ''}
             spectator={isSpectator}
+            game={game}
+            teamMode={teamMode}
           />
 
           {/* 阶段轨道：整回合六段一目了然 */}

@@ -1,5 +1,12 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { attackRange } from './distanceInfo';
+import {
+  evaluatePosition,
+  predictIntent,
+  recommendAction,
+  simulateCard,
+  describeTargetLock,
+} from '../../ai/tacticalAdvisor';
 
 const hasCard = (hand, name) => (hand || []).some(card => card?.name === name);
 
@@ -83,16 +90,163 @@ export function buildTacticalPulse({
   };
 }
 
+const initialAdvice = { kind: 'wait', label: '军师正在研判…', tone: 'calm', source: 'fallback' };
+const TONE_ORDER = { muted: 0, calm: 1, observe: 2, plan: 3, recover: 4, attack: 5, alert: 6, danger: 7 };
+
 export default function TacticalPulse(props) {
+  const {
+    selfPlayer = null,
+    players = [],
+    selectedTarget = null,
+    currentPlayer = null,
+    pendingAction = null,
+    currentPhase = '',
+    phaseLabel = '',
+    spectator = false,
+    selectedCards = [],
+    game = null,
+    teamMode = 'ffa',
+  } = props;
   const { chips, hint, tone } = buildTacticalPulse(props);
+  const [advice, setAdvice] = useState(initialAdvice);
+
+  const assessment = evaluatePosition({
+    self: selfPlayer,
+    players,
+    teamMode,
+    currentPhase,
+    currentPlayer,
+  });
+  const topThreat = assessment.threats[0] || null;
+  const threatPlayer = topThreat
+    ? (players || []).find(p => p?.id === topThreat.id) || null
+    : null;
+  const intent = threatPlayer ? predictIntent(threatPlayer, { currentPlayer, phase: currentPhase }) : null;
+  const selectedCard = (selectedCards || [])[0] || null;
+  const simulation = selectedCard && selfPlayer
+    ? simulateCard({ card: selectedCard, self: selfPlayer, target: selectedTarget, players })
+    : null;
+  const targetLock = selectedTarget && selfPlayer
+    ? describeTargetLock({ self: selfPlayer, target: selectedTarget, players, card: selectedCard })
+    : null;
+
+  useEffect(() => {
+    let alive = true;
+    if (!selfPlayer || spectator) {
+      setAdvice(initialAdvice);
+      return () => { alive = false; };
+    }
+    setAdvice(initialAdvice);
+    recommendAction({ self: selfPlayer, players, pendingAction, game })
+      .then(next => {
+        if (alive && next) setAdvice(prev => (
+          (TONE_ORDER[next.tone] ?? 0) >= (TONE_ORDER[prev.tone] ?? 0) || prev === initialAdvice
+            ? next
+            : prev
+        ));
+      })
+      .catch(() => {
+        if (alive) setAdvice({ kind: 'wait', label: '稳住阵脚，观察对手', tone: 'calm', source: 'fallback' });
+      });
+    return () => { alive = false; };
+  }, [
+    selfPlayer?.id,
+    selfPlayer?.hp,
+    (selfPlayer?.handCards || []).length,
+    pendingAction?.type,
+    pendingAction?.player?.id,
+    currentPhase,
+    game,
+    spectator,
+  ]);
+
+  if (spectator) {
+    return (
+      <div className={`tactical-pulse pulse-advised tone-${tone}`} aria-label="军师战局研判">
+        <div className="pulse-chips">
+          <span className="pulse-title">军师 · 战局研判</span>
+          <span className="pulse-eyebrow">战局脉搏</span>
+          {chips.map(chip => (
+            <span className="pulse-chip" key={chip.key}>{chip.label}</span>
+          ))}
+        </div>
+        <div className="advisor-win-row">
+          <span className="advisor-win-label">胜率</span>
+          <div className="advisor-win-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={assessment.winRate}>
+            <i className="advisor-win-fill" style={{ width: `${assessment.winRate}%` }} />
+          </div>
+          <span className="advisor-win-value">{assessment.winRate}%</span>
+        </div>
+        {topThreat && (
+          <div className="advisor-threat">
+            <span className="advisor-threat-eyebrow">威胁榜首</span>
+            <b>{topThreat.name}</b>
+            <span className="advisor-threat-label">{topThreat.label} · {topThreat.score}</span>
+          </div>
+        )}
+        <div className="pulse-hint">
+          <i className="pulse-dot" aria-hidden="true" />
+          <span>{hint}</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`tactical-pulse tone-${tone}`} aria-label="战局脉搏">
+    <div className={`tactical-pulse pulse-advised tone-${tone}`} aria-label="军师战局研判">
       <div className="pulse-chips">
-        <span className="pulse-title">战局脉搏</span>
+        <span className="pulse-title">军师 · 战局研判</span>
+        <span className="pulse-eyebrow">战局脉搏</span>
         {chips.map(chip => (
           <span className="pulse-chip" key={chip.key}>{chip.label}</span>
         ))}
       </div>
+
+      <div className="advisor-win-row">
+        <span className="advisor-win-label">胜率</span>
+        <div
+          className="advisor-win-track"
+          role="progressbar"
+          aria-label="胜率"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={assessment.winRate}>
+          <i className="advisor-win-fill" style={{ width: `${assessment.winRate}%` }} />
+          <span className="advisor-win-mark" style={{ left: `${assessment.winRate}%` }} aria-hidden="true" />
+        </div>
+        <span className="advisor-win-value">{assessment.winRate}%</span>
+      </div>
+
+      <div className="advisor-brief">
+        {topThreat ? (
+          <span className="advisor-threat">
+            <span className="advisor-threat-eyebrow">威胁榜首</span>
+            <b>{topThreat.name}</b>
+            <span className="advisor-threat-label">
+              {topThreat.label}{intent ? ` · ${intent.label}` : ''} · {topThreat.score}
+            </span>
+          </span>
+        ) : (
+          <span className="advisor-threat advisor-threat-empty">暂无明确威胁</span>
+        )}
+        <span className={`advisor-advice tone-${advice.tone || 'calm'}`}>
+          <span className="advisor-advice-eyebrow">军师建议</span>
+          <b>{advice.label}</b>
+          {advice.source === 'ai' && <i className="advisor-source">AI 同源</i>}
+        </span>
+      </div>
+
+      {simulation && (
+        <div className="advisor-sim" title={simulation.detail}>
+          <span className="advisor-sim-eyebrow">推演</span>
+          <b>{simulation.label}</b>
+          <span>期望 {simulation.expected}</span>
+          <span className={`advisor-risk risk-${simulation.risk}`}>风险 {simulation.risk}</span>
+        </div>
+      )}
+
+      {targetLock && <div className="advisor-lock">{targetLock}</div>}
+
       <div className="pulse-hint">
         <i className="pulse-dot" aria-hidden="true" />
         <span>{hint}</span>

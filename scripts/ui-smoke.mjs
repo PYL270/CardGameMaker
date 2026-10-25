@@ -98,6 +98,13 @@ import GameSettingsPanel, {
 } from '../src/components/GameBoard/GameSettingsPanel.jsx';
 import CommandPalette, { filterCommands } from '../src/components/GameBoard/CommandPalette.jsx';
 import TacticalPulse, { buildTacticalPulse } from '../src/components/GameBoard/TacticalPulse.jsx';
+import {
+  evaluatePosition,
+  predictIntent,
+  recommendAction,
+  simulateCard,
+  describeTargetLock,
+} from '../src/ai/tacticalAdvisor.js';
 import { buildEquipSlots, equipChoiceEntries, normalizeEquipLimit } from '../src/components/GameBoard/equipSlots.js';
 import { computeCardTilt, shouldEnableCardTilt, CARD_TILT_MAX_DEG } from '../src/components/GameBoard/cardTilt.js';
 import ArtStudio from '../src/components/Editor/ArtStudio.jsx';
@@ -4559,6 +4566,102 @@ async function main() {
   }));
   assert(spectatorPulseHtml.includes('观战中：观察双方手牌数量')
     && !spectatorPulseHtml.includes('手牌 2/4'), '观战脉搏 SSR 不显示手牌');
+
+  console.log('\n[55] 战术军师 2.0：胜率 / 威胁 / 意图 / 推演');
+  const advisorSelf = {
+    id: 's1', name: '你', seatNum: 0, team: 0, hp: 3, maxHp: 4, status: 'alive',
+    handCards: [{ id: 'c1', name: '杀' }, { id: 'c2', name: '桃' }], equips: {},
+  };
+  const advisorAlly = {
+    id: 's2', name: '盟友', seatNum: 1, team: 0, hp: 4, maxHp: 4, status: 'alive',
+    handCards: [], equips: {},
+  };
+  const advisorEnemy = {
+    id: 'e1', name: 'AI1', seatNum: 2, team: 1, hp: 1, maxHp: 4, status: 'alive',
+    handCards: [{ name: '闪' }, { name: '闪' }, { name: '杀' }],
+    equips: { slot1: { name: '青龙偃月刀', subtype: 'weapon', range: 3 } },
+  };
+  const advisorEnemy2 = {
+    id: 'e2', name: 'AI2', seatNum: 3, team: 1, hp: 4, maxHp: 4, status: 'alive',
+    handCards: [{ name: '闪' }], equips: {},
+  };
+  const advisorPlayers = [advisorSelf, advisorAlly, advisorEnemy, advisorEnemy2];
+  const position = evaluatePosition({
+    self: advisorSelf, players: advisorPlayers, teamMode: '2v2', currentPhase: 'play',
+    currentPlayer: advisorEnemy,
+  });
+  assert(position.winRate >= 0 && position.winRate <= 100 && position.selfScore >= 0,
+    '战局研判胜率/自身评分在 0-100');
+  assert(position.threats.length === 2
+    && position.threats[0].score >= position.threats[1].score
+    && position.threats.every(t => t.id !== advisorAlly.id)
+    && position.threats.every(t => t.name && Number.isFinite(t.seat) && t.label),
+  '威胁榜按分数排序且排除队友');
+  assert(position.threats[0].label === '正在行动', '当前行动者威胁标签');
+  assert(predictIntent({ ...advisorEnemy, hp: 4, maxHp: 4 }, { currentPlayer: advisorEnemy, phase: 'play' }).label === '可能进攻',
+    '意图预测：当前回合手牌多=可能进攻');
+  assert(predictIntent({ ...advisorSelf, hp: 1 }, { currentPlayer: advisorEnemy, phase: 'play' }).label === '可能求桃',
+    '意图预测：低体力=可能求桃');
+  assert(predictIntent({
+    ...advisorSelf, hp: 4, handCards: [{}, {}, {}, {}],
+  }, { currentPlayer: advisorEnemy, phase: 'play' }).label === '蓄牌观望',
+  '意图预测：非当前回合攒牌=蓄牌观望');
+  assert(predictIntent({ ...advisorEnemy, hp: 4, maxHp: 4 }, { currentPlayer: advisorEnemy, phase: 'play' }).tone === 'alert',
+    '意图预测输出 tone');
+
+  const simSha = simulateCard({ card: { name: '杀' }, self: advisorSelf, target: advisorEnemy, players: advisorPlayers });
+  assert(simSha && simSha.expected > 0 && simSha.expected <= 1 && ['低', '中', '高'].includes(simSha.risk)
+    && simSha.detail.includes('伤害') && simSha.label.includes('杀'), '推演：杀给出期望/风险/详情');
+  const simTao = simulateCard({ card: { name: '桃' }, self: advisorSelf, target: advisorSelf, players: advisorPlayers });
+  assert(simTao.expected === 1 && simTao.risk === '无', '推演：桃回复 1');
+  const simWz = simulateCard({ card: { name: '无中生有' }, self: advisorSelf, players: advisorPlayers });
+  assert(simWz.expected === 2 && simWz.label.includes('无中生有'), '推演：无中生有摸 2');
+  const simAoe = simulateCard({ card: { name: '万箭齐发' }, self: advisorSelf, players: advisorPlayers });
+  assert(simAoe.expected > 0 && simAoe.detail.includes('覆盖'), '推演：AOE 覆盖人数');
+  const lock = describeTargetLock({
+    self: advisorSelf, target: advisorEnemy, players: advisorPlayers, card: { name: '杀' },
+  });
+  assert(lock.startsWith('目标锁定：AI1') && lock.includes('距离') && lock.includes('风险'),
+    '目标锁定：名称/距离/预计伤害/风险');
+
+  const fakeAdvisorGame = {
+    aiAutoPlay: async () => ({ card: { name: '桃' }, targets: [advisorSelf] }),
+  };
+  const aiAdvice = await recommendAction({ self: advisorSelf, players: advisorPlayers, game: fakeAdvisorGame });
+  assert(aiAdvice.source === 'ai' && aiAdvice.label.includes('桃') && aiAdvice.tone === 'recover',
+    '军师建议优先复用 aiAutoPlay');
+  const fallbackAdvice = await recommendAction({
+    self: { ...advisorSelf, hp: 4 }, players: advisorPlayers, pendingAction: { type: 'play', player: { ...advisorSelf, hp: 4 } },
+  });
+  assert(fallbackAdvice.source === 'fallback' && fallbackAdvice.label.includes('杀'),
+    '无 Game 时保守建议：桃→杀');
+  const endAdvice = await recommendAction({
+    self: { ...advisorSelf, hp: 4, handCards: [{ name: '闪' }] },
+    players: advisorPlayers,
+    pendingAction: { type: 'play', player: { ...advisorSelf, hp: 4, handCards: [{ name: '闪' }] } },
+  });
+  assert(endAdvice.kind === 'end' && endAdvice.label.includes('结束出牌'), '无牌可出建议结束');
+  const advisorPulseHtml = renderToString(React.createElement(TacticalPulse, {
+    selfPlayer: advisorSelf,
+    players: advisorPlayers,
+    selectedTarget: advisorEnemy,
+    selectedCards: [{ name: '杀' }],
+    currentPlayer: advisorEnemy,
+    pendingAction: { type: 'play', player: advisorSelf },
+    currentPhase: 'play',
+    phaseLabel: '出牌阶段',
+    teamMode: '2v2',
+  }));
+  for (const text of ['军师 · 战局研判', '战局脉搏', '胜率', '威胁榜首', '军师建议',
+    '推演', '期望', '风险', '目标锁定：AI1', '距离']) {
+    assert(advisorPulseHtml.includes(text), `军师面板含「${text}」`);
+  }
+  assert(advisorPulseHtml.includes('role="progressbar"') && advisorPulseHtml.includes('advisor-win-fill'),
+    '军师面板胜率条可访问');
+  const advisorSrc = readFileSync('src/ai/tacticalAdvisor.js', 'utf8');
+  assert(advisorSrc.includes('evaluatePosition') && advisorSrc.includes('predictIntent')
+    && advisorSrc.includes('recommendAction') && advisorSrc.includes('simulateCard')
+    && advisorSrc.includes('aiAutoPlay'), '军师纯函数模块导出完整');
 
   const boardCommandSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
   assert(boardCommandSrc.includes('showCommandPalette') && boardCommandSrc.includes('<CommandPalette')

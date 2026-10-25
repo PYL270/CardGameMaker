@@ -6067,3 +6067,175 @@ input[type="range"]:disabled::-webkit-slider-thumb,
 input[type="range"]:disabled::-moz-range-thumb {
   box-shadow: 0 0 0 2px rgba(10, 13, 18, 0.9);
 }
+
+/* ============================================================
+   军师 · 战局研判 2.0（右侧指令栏底部的轻量增补，不改原脉搏结构）
+   ============================================================ */
+.tactical-pulse.pulse-advised {
+  width: min(660px, 96%);
+  gap: 4px;
+  padding: 7px 14px 8px;
+}
+.pulse-eyebrow {
+  font-size: 8.5px;
+  letter-spacing: .18em;
+  color: rgba(214, 185, 110, .62);
+  border-right: 1px solid rgba(214, 185, 110, .22);
+  padding-right: 7px;
+  margin-right: 1px;
+}
+.advisor-win-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 2px 0;
+}
+.advisor-win-label {
+  flex: none;
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  color: var(--text-secondary);
+}
+.advisor-win-track {
+  position: relative;
+  flex: 1;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .45);
+  overflow: hidden;
+}
+.advisor-win-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7d5d2b 0%, #c9a94f 48%, #f0d894 100%);
+  box-shadow: 0 0 10px rgba(214, 185, 110, .35);
+  transition: width .45s cubic-bezier(.22, 1, .36, 1);
+}
+.advisor-win-mark {
+  position: absolute;
+  top: -1px;
+  width: 1px;
+  height: 7px;
+  background: rgba(255, 249, 230, .8);
+  transform: translateX(-1px);
+  opacity: .7;
+}
+.advisor-win-value {
+  flex: none;
+  width: 34px;
+  text-align: right;
+  font-family: var(--font-num, 'DIN Alternate', 'Segoe UI', sans-serif);
+  font-size: 11px;
+  color: var(--gold-bright);
+  font-variant-numeric: tabular-nums;
+}
+.advisor-brief {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.advisor-threat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  font-size: 10.5px;
+  color: #d8d0be;
+}
+.advisor-threat b {
+  color: #f0c3a0;
+  font-weight: 600;
+  font-size: 11px;
+}
+.advisor-threat-eyebrow,
+.advisor-advice-eyebrow,
+.advisor-sim-eyebrow {
+  color: var(--text-secondary);
+  font-size: 8.5px;
+  letter-spacing: .12em;
+}
+.advisor-threat-label {
+  color: #bfb5a2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.advisor-threat-empty { color: var(--text-secondary); font-size: 10px; }
+.advisor-advice {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  margin-left: auto;
+  font-size: 10.5px;
+  color: #e4d7b8;
+  min-width: 0;
+}
+.advisor-advice b {
+  color: var(--gold-bright);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.advisor-advice.tone-recover b { color: #9fe3c0; }
+.advisor-advice.tone-attack b,
+.advisor-advice.tone-danger b { color: #f2b0a4; }
+.advisor-advice.tone-plan b { color: #d9cfae; }
+.advisor-source {
+  font-style: normal;
+  font-size: 8px;
+  letter-spacing: .06em;
+  color: rgba(214, 185, 110, .58);
+  border: 1px solid rgba(214, 185, 110, .22);
+  border-radius: 999px;
+  padding: 0 4px;
+}
+.advisor-sim {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, .2);
+  border: 1px solid rgba(214, 185, 110, .12);
+  font-size: 10px;
+  color: #c8c0ae;
+}
+.advisor-sim b { color: #e6d6ae; font-weight: 500; }
+.advisor-risk {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: .04em;
+  color: #b7cda8;
+}
+.advisor-risk.risk-中 { color: #e8cb8b; }
+.advisor-risk.risk-高 { color: #eba49b; }
+.advisor-lock {
+  width: 100%;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  letter-spacing: .01em;
+  color: #efd9a9;
+  background: linear-gradient(90deg, rgba(214, 185, 110, .12), rgba(214, 185, 110, .02));
+  border-left: 2px solid rgba(214, 185, 110, .55);
+}
+.tactical-pulse.pulse-advised .pulse-hint { font-size: 11px; }
+@media (max-width: 1100px) {
+  .advisor-brief { justify-content: flex-start; }
+  .advisor-advice { margin-left: 0; }
+}
+@media (max-width: 900px) {
+  .tactical-pulse.pulse-advised { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .advisor-win-fill { transition: none; }
+}
