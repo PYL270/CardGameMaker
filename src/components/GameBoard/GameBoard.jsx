@@ -243,12 +243,13 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     }
   };
   const applyLayoutPreset = (preset) => {
-    const next = applyPreset(preset);
+    // 布局预设只切换布局，不覆盖玩家单独选择的界面风格
+    const next = updateLayout(applyPreset(preset), { theme: layout.theme });
     setLayout(next);
     setShowLog(shouldOpenLog(next));
   };
   const resetLayoutAll = () => {
-    const next = defaultLayout();
+    const next = updateLayout(defaultLayout(), { theme: layout.theme });
     setLayout(next);
     setShowLog(shouldOpenLog(next));
     // 同时复位拖动面板（手牌区/操作面板/日志）的位置
@@ -1731,7 +1732,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           font-weight: 800;
           color: #2c2416;
         }
-        .disabled-card { opacity: 0.45; }
+        .disabled-card { opacity: 0.76; filter: saturate(0.62) brightness(0.96); }
         .selectable-card { cursor: pointer; }
         .self-character {
           width: 230px; flex-shrink: 0;
@@ -2013,6 +2014,361 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           .game-board[data-layout="mingsha"] .hand-title { font-size: 11.5px; }
           .game-board[data-layout="compact"] .board-header { flex-wrap: wrap; }
           .game-board[data-layout="compact"] .other-players { flex-wrap: wrap; }
+        }
+
+        /* ===== 桌面端：右侧统一指令栏（行动 / 战局脉搏 / 快捷出牌 / 日志） ===== */
+        @media (min-width: 1024px) {
+          .game-board { --rail-w: 392px; --rail-pad: 24px; }
+          .game-board::before {
+            content: '';
+            position: absolute;
+            top: 58px; right: 0; bottom: 0;
+            width: var(--rail-w);
+            pointer-events: none;
+            z-index: 0;
+            border-left: 1px solid rgba(214, 185, 110, 0.14);
+            background:
+              repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 9px),
+              linear-gradient(180deg, rgba(20, 23, 30, 0.55), rgba(7, 9, 13, 0.72));
+          }
+          /* 布局预设里的 padding 简写会覆盖 App.css 的右栏预留，这里统一收回 */
+          .game-board[data-layout] .board-main,
+          .game-board[data-layout] .self-zone {
+            padding-right: var(--rail-w);
+          }
+          .game-board .board-center { z-index: 40; }
+          .game-board .board-center .action-panel {
+            top: 74px !important;
+            right: var(--rail-pad) !important;
+            width: calc(var(--rail-w) - var(--rail-pad) * 2) !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            max-height: calc(100vh - 300px) !important;
+          }
+          .game-board .tactical-pulse {
+            position: fixed;
+            right: var(--rail-pad);
+            bottom: 124px;
+            width: calc(var(--rail-w) - var(--rail-pad) * 2);
+            max-width: none;
+            margin: 0;
+            z-index: 88;
+            border-radius: 12px;
+          }
+          .game-board .quick-play-bar {
+            right: var(--rail-pad) !important;
+            bottom: 64px !important;
+            width: calc(var(--rail-w) - var(--rail-pad) * 2) !important;
+            min-width: 0 !important;
+          }
+          .game-board[data-layout] .log-strip {
+            position: fixed;
+            right: var(--rail-pad);
+            bottom: 20px;
+            top: auto;
+            transform: none;
+            width: calc(var(--rail-w) - var(--rail-pad) * 2);
+            height: 34px;
+            padding: 0 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: horizontal-tb;
+            letter-spacing: 0.16em;
+            font-size: 12px;
+            border-radius: 10px;
+            z-index: 89;
+          }
+          .game-board .log-strip::before {
+            content: '▤';
+            margin-right: 7px;
+            font-size: 13px;
+            opacity: 0.8;
+          }
+          .game-board .other-players .player-area {
+            min-width: calc(160px * var(--opponent-scale, 1));
+          }
+          .game-board .hub-rose {
+            width: min(54vh, 470px);
+            height: min(54vh, 470px);
+            opacity: 0.16;
+          }
+          .game-board .table-hub::before { width: min(50vh, 430px); }
+          .game-board .table-hub::after { width: min(42vh, 370px); }
+          .game-board .board-main { gap: 10px; }
+          .game-board .board-header { gap: 8px; }
+          .game-board .board-header .phase-info { font-size: 13px; letter-spacing: 0.02em; }
+          .game-board .board-header .layout-trigger {
+            border-color: rgba(214, 185, 110, 0.5);
+            color: var(--gold-bright);
+          }
+        }
+        @media (min-width: 1024px) and (max-width: 1279px) {
+          .game-board { --rail-w: 360px; --rail-pad: 18px; }
+          .game-board .board-center .action-panel { top: 70px !important; }
+          .game-board .tactical-pulse { bottom: 120px; }
+        }
+
+        /* ===== 可读性：阶段轨道 / 场面信息 / 回合核心 ===== */
+        @media (min-width: 901px) {
+          .game-board .chip {
+            font-size: 12.5px;
+            padding: 4px 11px;
+            color: #d3cbbb;
+          }
+          .game-board .stage-empty { font-size: 12px; color: rgba(232, 226, 210, 0.44); }
+          .game-board .phase-track { padding: 5px 14px; gap: 3px; }
+          .game-board .phase-node { font-size: 11.5px; padding: 3px 10px; }
+          .game-board .hub-round { font-size: 11px; opacity: 0.86; }
+          .game-board .hub-phase { font-size: 12px; }
+          .game-board .turn-tip { font-size: 13px; }
+        }
+
+        /* ===== 手机端：顶栏折行不裁切 / 手牌工具条收紧 ===== */
+        @media (max-width: 720px) {
+          .game-board .board-header {
+            flex-wrap: wrap;
+            overflow-x: visible;
+            gap: 5px;
+          }
+          .game-board .board-header .phase-info {
+            flex: 1 1 100%;
+            order: 10;
+            max-width: none;
+            font-size: 11px;
+          }
+          .game-board .hand-toolbar {
+            flex-wrap: wrap;
+            gap: 4px 8px;
+          }
+          .game-board .hand-sort-badge { font-size: 10px; padding: 1px 6px; }
+          .game-board .hand-sort-badge small { display: none; }
+          .game-board .hand-sort-btn {
+            margin-left: auto;
+            min-height: 30px !important;
+            padding: 2px 8px;
+            font-size: 11px;
+          }
+          .game-board .hand-cards { justify-content: flex-start; padding-left: 1px; }
+          .game-board .self-character { overflow: hidden; }
+          .game-board .board-header .header-action { padding: 4px 7px; }
+          /* 手机竖屏：对手卡与武将卡只保留有效信息，空装备框不占高度 */
+          .game-board .other-players .player-area { padding: 8px; }
+          .game-board .other-players .player-avatar {
+            width: 38px; height: 38px; font-size: 16px;
+          }
+          .game-board .other-players .equip-area {
+            min-height: 0; margin: 3px 0; gap: 3px;
+          }
+          .game-board .other-players .equip-slot.empty { display: none; }
+          .game-board .other-players .equip-slot { min-height: 30px; }
+          .game-board .other-players .skill-tag { font-size: 9px; padding: 1px 5px; }
+          .game-board .self-character .self-equip-slot.empty { display: none; }
+          .game-board .self-character .self-equip-section { gap: 4px; }
+          .game-board .self-character .self-equip-slots { min-height: 0; }
+        }
+        @media (max-width: 520px) {
+          .game-board .hand-sort-badge { display: none; }
+        }
+
+        /* ============================================================
+           界面风格 1/3：墨玉鎏金（默认，保持现有材质）
+           界面风格 2/3：青灰极简（冷色、弱装饰、信息优先）
+           界面风格 3/3：暖木典藏（暖木、羊皮纸、厚描边）
+           ============================================================ */
+        .game-board[data-theme="modern"] {
+          --gold: #a9cbd6;
+          --gold-bright: #e4f4f8;
+          --gold-deep: #5f8794;
+          --accent-gold: #8fb9c9;
+          --accent-gold-soft: rgba(143, 185, 201, 0.12);
+          --text-primary: #e7eef0;
+          --text-secondary: #9cabb1;
+          --glass-border: rgba(143, 185, 201, 0.24);
+          --glass-border-strong: rgba(196, 231, 240, 0.5);
+          --font-calligraphy: var(--font-cn);
+          --card-paper-light: #f4f9f7;
+          --card-paper: #e8f1ee;
+          --card-paper-deep: #d8e6e2;
+          --card-edge: rgba(45, 64, 68, 0.55);
+          --card-gold-line: rgba(95, 135, 148, 0.4);
+        }
+        .game-board[data-theme="modern"]::before {
+          border-left-color: rgba(143, 185, 201, 0.18);
+          background:
+            repeating-linear-gradient(115deg, rgba(180, 226, 238, 0.014) 0 1px, transparent 1px 9px),
+            linear-gradient(180deg, rgba(14, 23, 28, 0.58), rgba(6, 10, 13, 0.76));
+        }
+        .game-board[data-theme="modern"] .board-header {
+          background: linear-gradient(180deg, rgba(16, 24, 29, 0.96), rgba(7, 11, 14, 0.98));
+          border-color: rgba(143, 185, 201, 0.28);
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+        .game-board[data-theme="modern"] .hand-zone {
+          background: linear-gradient(160deg, rgba(17, 25, 30, 0.96), rgba(7, 11, 14, 0.98));
+          border-color: rgba(143, 185, 201, 0.28);
+          box-shadow: 0 12px 28px rgba(0, 0, 0, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+        .game-board[data-theme="modern"] .self-character {
+          background:
+            linear-gradient(160deg, rgba(17, 25, 30, 0.97), rgba(7, 11, 14, 0.98)) padding-box,
+            linear-gradient(150deg, rgba(143, 185, 201, 0.55), rgba(255, 255, 255, 0.03) 45%, rgba(143, 185, 201, 0.18)) border-box;
+          border-color: transparent;
+        }
+        .game-board[data-theme="modern"] .action-panel {
+          background:
+            linear-gradient(158deg, rgba(16, 24, 29, 0.95), rgba(7, 11, 14, 0.98)) padding-box,
+            linear-gradient(152deg, rgba(143, 185, 201, 0.5), rgba(255, 255, 255, 0.04) 34%, rgba(143, 185, 201, 0.16) 68%, rgba(255, 255, 255, 0.03)) border-box;
+          border-color: transparent;
+        }
+        .game-board[data-theme="modern"] .tactical-pulse {
+          background: linear-gradient(160deg, rgba(18, 28, 33, 0.85), rgba(7, 11, 14, 0.8));
+          border-color: rgba(143, 185, 201, 0.28);
+        }
+        .game-board[data-theme="modern"] .chip,
+        .game-board[data-theme="modern"] .phase-track {
+          background: linear-gradient(180deg, rgba(24, 36, 42, 0.86), rgba(9, 15, 18, 0.92));
+          border-color: rgba(143, 185, 201, 0.26);
+          color: #c9d8dc;
+        }
+        .game-board[data-theme="modern"] .log-strip {
+          background: linear-gradient(180deg, rgba(18, 27, 32, 0.95), rgba(7, 11, 14, 0.97));
+          border-color: rgba(143, 185, 201, 0.35);
+          color: var(--accent-gold);
+        }
+        .game-board[data-theme="modern"] .log-strip:hover { border-color: rgba(196, 231, 240, 0.7); }
+        .game-board[data-theme="modern"] .hub-rose {
+          color: #9fc6d2;
+          opacity: 0.11;
+          animation-duration: 220s;
+        }
+        .game-board[data-theme="modern"] .table-hub::after { border-color: rgba(143, 185, 201, 0.22); }
+        .game-board[data-theme="modern"] .hub-name {
+          background: linear-gradient(104deg, #f2fbfd, #b9dce6 58%, #7ba5b2);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .game-board[data-theme="modern"] .hub-phase {
+          border-color: rgba(143, 185, 201, 0.35);
+          background: rgba(143, 185, 201, 0.08);
+          color: var(--gold-bright);
+        }
+        .game-board[data-theme="modern"] .btn {
+          background: linear-gradient(180deg, rgba(38, 52, 58, 0.9), rgba(15, 22, 26, 0.94));
+          border-color: rgba(143, 185, 201, 0.26);
+          color: #e3edf0;
+        }
+        .game-board[data-theme="modern"] .btn-primary {
+          background: linear-gradient(180deg, #a8ced9, #6c96a4);
+          border-color: #c6e8f0;
+          color: #061014;
+        }
+        .game-board[data-theme="modern"] .btn-danger {
+          background: linear-gradient(180deg, #9c4c49, #6d2c2b);
+          border-color: rgba(208, 87, 79, 0.65);
+        }
+        .game-board[data-theme="modern"] .turn-tip {
+          background: rgba(13, 20, 24, 0.66);
+          border-color: rgba(143, 185, 201, 0.24);
+        }
+
+        .game-board[data-theme="tabletop"] {
+          --gold: #e3b96c;
+          --gold-bright: #f7dfa8;
+          --gold-deep: #9a6d2f;
+          --accent-gold: #e3b96c;
+          --accent-gold-soft: rgba(227, 185, 108, 0.14);
+          --text-primary: #f2e7d2;
+          --text-secondary: #b3a48a;
+          --card-paper-light: #f6e8ca;
+          --card-paper: #ecd9b5;
+          --card-paper-deep: #dfc79c;
+          --card-edge: rgba(92, 63, 30, 0.58);
+          --card-gold-line: rgba(180, 133, 62, 0.48);
+        }
+        .game-board[data-theme="tabletop"]::before {
+          border-left-color: rgba(227, 185, 108, 0.2);
+          background:
+            repeating-linear-gradient(0deg, rgba(255, 220, 160, 0.018) 0 1px, transparent 1px 7px),
+            linear-gradient(180deg, rgba(39, 27, 17, 0.6), rgba(16, 10, 6, 0.78));
+        }
+        .game-board[data-theme="tabletop"] .board-header {
+          background:
+            repeating-linear-gradient(0deg, rgba(255, 220, 160, 0.018) 0 1px, transparent 1px 7px),
+            linear-gradient(180deg, rgba(42, 29, 19, 0.97), rgba(18, 12, 8, 0.99));
+          border-color: rgba(227, 185, 108, 0.42);
+          box-shadow: 0 16px 36px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 240, 210, 0.08);
+        }
+        .game-board[data-theme="tabletop"] .hand-zone {
+          background:
+            repeating-linear-gradient(0deg, rgba(255, 220, 160, 0.018) 0 1px, transparent 1px 7px),
+            linear-gradient(160deg, rgba(48, 34, 22, 0.96), rgba(20, 13, 8, 0.98));
+          border-color: rgba(227, 185, 108, 0.38);
+          box-shadow: 0 16px 34px rgba(0, 0, 0, 0.56), inset 0 1px 0 rgba(255, 240, 210, 0.07);
+        }
+        .game-board[data-theme="tabletop"] .self-character {
+          background:
+            linear-gradient(160deg, rgba(48, 34, 22, 0.97), rgba(20, 13, 8, 0.99)) padding-box,
+            linear-gradient(150deg, rgba(227, 185, 108, 0.65), rgba(255, 255, 255, 0.04) 45%, rgba(227, 185, 108, 0.24)) border-box;
+          border-color: transparent;
+          box-shadow: 0 18px 40px rgba(0, 0, 0, 0.62), inset 0 1px 0 rgba(255, 240, 210, 0.07);
+        }
+        .game-board[data-theme="tabletop"] .action-panel {
+          background:
+            linear-gradient(158deg, rgba(46, 32, 21, 0.97), rgba(19, 12, 8, 0.99)) padding-box,
+            linear-gradient(152deg, rgba(227, 185, 108, 0.64), rgba(255, 255, 255, 0.04) 34%, rgba(227, 185, 108, 0.24) 68%, rgba(255, 255, 255, 0.03)) border-box;
+          border-color: transparent;
+        }
+        .game-board[data-theme="tabletop"] .tactical-pulse {
+          background: linear-gradient(160deg, rgba(49, 34, 21, 0.88), rgba(18, 11, 7, 0.85));
+          border-color: rgba(227, 185, 108, 0.34);
+        }
+        .game-board[data-theme="tabletop"] .chip,
+        .game-board[data-theme="tabletop"] .phase-track {
+          background: linear-gradient(180deg, rgba(54, 38, 24, 0.9), rgba(23, 15, 9, 0.95));
+          border-color: rgba(227, 185, 108, 0.32);
+          color: #e3d2b5;
+        }
+        .game-board[data-theme="tabletop"] .log-strip {
+          background: linear-gradient(180deg, rgba(50, 34, 21, 0.96), rgba(18, 11, 7, 0.98));
+          border-color: rgba(227, 185, 108, 0.44);
+          color: var(--gold-bright);
+          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        .game-board[data-theme="tabletop"] .hub-rose {
+          color: #e3b96c;
+          opacity: 0.26;
+          animation-duration: 110s;
+        }
+        .game-board[data-theme="tabletop"] .table-hub::after { border-color: rgba(227, 185, 108, 0.28); }
+        .game-board[data-theme="tabletop"] .hub-name {
+          background: linear-gradient(104deg, #fff7e6, #f0d29a 54%, #c99c4e);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .game-board[data-theme="tabletop"] .hub-phase {
+          border-color: rgba(227, 185, 108, 0.42);
+          background: rgba(227, 185, 108, 0.1);
+        }
+        .game-board[data-theme="tabletop"] .btn {
+          background: linear-gradient(180deg, rgba(76, 55, 35, 0.92), rgba(30, 20, 12, 0.96));
+          border-color: rgba(227, 185, 108, 0.38);
+          color: #f2e5cf;
+        }
+        .game-board[data-theme="tabletop"] .btn-primary {
+          background: linear-gradient(180deg, #e3b96c, #b8843a);
+          border-color: #f7dfa8;
+          color: #2a1909;
+        }
+        .game-board[data-theme="tabletop"] .btn-danger {
+          background: linear-gradient(180deg, #a95046, #6f2b26);
+          border-color: rgba(214, 92, 80, 0.7);
+        }
+        .game-board[data-theme="tabletop"] .turn-tip {
+          background: rgba(35, 23, 14, 0.7);
+          border-color: rgba(227, 185, 108, 0.3);
         }
       `}</style>
     </div>

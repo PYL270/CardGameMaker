@@ -44,9 +44,11 @@ import {
   LAYOUT_STORAGE_KEY,
   HAND_SCALE_MIN,
   HAND_SCALE_MAX,
+  THEME_OPTIONS,
   defaultLayout,
   applyPreset,
   normalizeLayout,
+  themeOption,
   updateLayout,
   clampHandScale,
   layoutData,
@@ -911,6 +913,16 @@ async function main() {
   const dft = defaultLayout();
   assert(dft.preset === 'mingsha' && dft.logCollapsed === true, '默认预设为名将杀式且日志默认收起');
   assert(dft.logPosition === 'right' && dft.handScale === 1.05, '名将杀式默认日志右侧 / 手牌缩放 1.05');
+  assert(dft.theme === 'ink' && THEME_OPTIONS.length === 3, '默认界面风格为墨玉鎏金，共三套可选风格');
+  assert(THEME_OPTIONS.map(t => t.id).join(',') === 'ink,modern,tabletop',
+    '三套风格 ID 固定为 ink / modern / tabletop');
+  assert(themeOption({ theme: 'modern' }).name === '青灰极简'
+    && themeOption({ theme: 'unknown' }).id === 'ink', '风格解析合法值并回退墨玉鎏金');
+  assert(normalizeLayout({ theme: 'nope' }).theme === 'ink', '非法风格回落到墨玉鎏金');
+  assert(layoutData(updateLayout(dft, { theme: 'tabletop' }))['data-theme'] === 'tabletop',
+    'data-theme 由布局配置生成');
+  assert(updateLayout(applyPreset('classic'), { theme: 'modern' }).theme === 'modern',
+    '切换布局预设时保留玩家选择的界面风格');
   const classicPreset = applyPreset('classic');
   assert(classicPreset.preset === 'classic' && classicPreset.handScale === 1
     && classicPreset.logCollapsed === false, '经典式 = 原布局参数（1 倍手牌、日志展开）');
@@ -951,13 +963,15 @@ async function main() {
       removeItem: k => m.delete(k),
     };
   })();
-  assert(saveLayout({ ...applyPreset('classic'), handScale: 1.15 }, memStorage) === true,
+  assert(saveLayout({ ...applyPreset('classic'), handScale: 1.15, theme: 'tabletop' }, memStorage) === true,
     '布局写入 localStorage 成功');
   const loadedLayout = loadLayout(memStorage);
   assert(loadedLayout.preset === 'classic' && loadedLayout.handScale === 1.15,
     '刷新后从 localStorage 恢复预设与手牌缩放');
-  assert(memStorage.getItem(LAYOUT_STORAGE_KEY).includes('"handScale":1.15'),
-    '持久化键 cgm_layout 内容可读');
+  assert(loadedLayout.theme === 'tabletop', '刷新后恢复玩家选择的界面风格');
+  assert(memStorage.getItem(LAYOUT_STORAGE_KEY).includes('"handScale":1.15')
+    && memStorage.getItem(LAYOUT_STORAGE_KEY).includes('"theme":"tabletop"'),
+  '持久化键 cgm_layout 内容可读');
   saveLayout({ ...applyPreset('mingsha'), showDistance: false }, memStorage);
   assert(loadLayout(memStorage).showDistance === false, '关闭距离提示后刷新仍保持关闭');
   memStorage.setItem(LAYOUT_STORAGE_KEY, '{损坏的json');
@@ -972,7 +986,8 @@ async function main() {
   console.log('\n[21] 布局设置面板');
   renderPage('LayoutSettings(名将杀式)', React.createElement(LayoutSettings, {
     layout: defaultLayout(), onChange: noop, onPreset: noop, onReset: noop, onClose: noop,
-  }), ['布局设置', '布局预设', '名将杀式', '经典式', '紧凑式', '手牌缩放', '105%',
+  }), ['布局设置', '界面风格', '墨玉鎏金', '青灰极简', '暖木典藏',
+    '布局预设', '名将杀式', '经典式', '紧凑式', '手牌缩放', '105%',
     '手牌间距/重叠', '对手卡尺寸', '日志位置', '右侧', '底部', '隐藏',
     '回合横幅', '飘字/飞牌提示', '显示距离提示', '恢复默认布局', '关闭', '细状态条']);
   renderPage('LayoutSettings(经典式)', React.createElement(LayoutSettings, {
@@ -981,6 +996,9 @@ async function main() {
   renderPage('LayoutSettings(紧凑式)', React.createElement(LayoutSettings, {
     layout: applyPreset('compact'), onChange: noop, onPreset: noop, onReset: noop, onClose: noop,
   }), ['紧凑式', '90%', '适合小屏']);
+  renderPage('LayoutSettings(青灰极简)', React.createElement(LayoutSettings, {
+    layout: updateLayout(defaultLayout(), { theme: 'modern' }), onChange: noop, onPreset: noop, onReset: noop, onClose: noop,
+  }), ['青灰极简', '冷青灰面板', 'theme-card is-active']);
 
   console.log('\n[22] 对局桌面布局渲染（data-layout / CSS 变量 / 日志抽屉）');
   const layoutPlayers = [
@@ -1015,6 +1033,10 @@ async function main() {
 
   const classicHtml = renderBoard(applyPreset('classic'));
   assert(classicHtml.includes('data-layout="classic"'), '经典式渲染 data-layout="classic"');
+  assert(classicHtml.includes('data-theme="ink"'), '经典式默认渲染 data-theme="ink"');
+  const modernHtml = renderBoard(updateLayout(defaultLayout(), { theme: 'modern' }));
+  assert(modernHtml.includes('data-theme="modern"') && modernHtml.includes('--hand-scale:1.05'),
+    '切换青灰极简后 data-theme 与布局变量同时生效');
   assert(classicHtml.includes('--hand-scale:1') && classicHtml.includes('--opponent-scale:1'),
     '经典式 CSS 变量为 1（原布局回归）');
   assert(classicHtml.includes('你的手牌') && classicHtml.includes('手牌 2'),

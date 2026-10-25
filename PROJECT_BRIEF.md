@@ -403,7 +403,7 @@ test.bat          # 或 npm run test:all
 | 套件 | 命令 | 当前结果 |
 |------|------|----------|
 | 引擎 | `node scripts/run-smoke.mjs` | 446/446 |
-| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1684/1684 |
+| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1701/1701 |
 | 中继协议 | `node scripts/net-smoke.mjs` | 37/37 |
 | 联机房主集成 | `node scripts/run-online-host-smoke.mjs` | 47/47 |
 | 浏览器实时交互 | `node scripts/headless-live-check.mjs` | 53/53 |
@@ -507,10 +507,11 @@ node node_modules/vite/bin/vite.js build
 - node scripts/run-smoke.mjs
 - node scripts/run-ui-smoke.mjs
 - node scripts/net-smoke.mjs
-确认当前状态（期望 446/1684/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
+确认当前状态（期望 446/1701/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
 关键约束：
 - 初始内置 10 名经典武将（cls_ 前缀）+ 基础角色；用户仍可自定义。
 - 墨玉鎏金视觉 + 宣纸牌面；手牌在底部，角色卡在旁边；手牌可拖动/整理。
+- 界面风格三选一：墨玉鎏金（默认）/ 青灰极简 / 暖木典藏，存 `cgm_layout.theme`；对局右栏统一收出牌面板、战局脉搏与日志。
 - 不恢复亮白塑料玻璃、不大量使用 emoji。
 - 出牌阶段规则集中走 Game.canPlayCard/getValidTargets；闪/无懈不能主动出，桃需受伤，酒每回合一次。
 - 牌面用 CardFace；.fly-card 必须 display:flex，名字/简注绝对定位，避免字体挤在一起。

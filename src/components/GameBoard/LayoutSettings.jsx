@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   PRESETS,
+  THEME_OPTIONS,
   HAND_GAP_OPTIONS,
   OPPONENT_SCALE_OPTIONS,
   LOG_POSITION_OPTIONS,
@@ -8,6 +9,7 @@ import {
   HAND_SCALE_MAX,
   clampHandScale,
   normalizeLayout,
+  themeOption,
 } from './layoutConfig';
 
 /**
@@ -19,6 +21,7 @@ export default function LayoutSettings({ layout: rawLayout, onChange, onPreset, 
   const layout = normalizeLayout(rawLayout);
   const scalePct = Math.round(layout.handScale * 100);
   const currentPreset = PRESETS.find(p => p.id === layout.preset) || PRESETS[0];
+  const currentTheme = themeOption(layout);
 
   return (
     <div className="layout-settings-overlay" onClick={onClose}>
@@ -31,6 +34,30 @@ export default function LayoutSettings({ layout: rawLayout, onChange, onPreset, 
           <h3>布局设置</h3>
           <button className="btn btn-small" onClick={onClose}>关闭</button>
         </div>
+
+        <div className="layout-row layout-theme-row">
+          <span className="layout-label">界面风格</span>
+          <div className="layout-options theme-options">
+            {THEME_OPTIONS.map(t => (
+              <button key={t.id}
+                className={`theme-card ${layout.theme === t.id ? 'is-active' : ''}`}
+                title={t.desc}
+                aria-pressed={layout.theme === t.id}
+                onClick={() => onChange?.({ theme: t.id })}>
+                <span className="theme-swatch" aria-hidden="true">
+                  {t.swatch.map(color => (
+                    <i key={color} style={{ background: color }} />
+                  ))}
+                </span>
+                <span className="theme-card-text">
+                  <b>{t.name}</b>
+                  <small>{t.short}</small>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="layout-desc">{currentTheme.desc}</p>
 
         <div className="layout-row">
           <span className="layout-label">布局预设</span>
@@ -154,6 +181,35 @@ export default function LayoutSettings({ layout: rawLayout, onChange, onPreset, 
           .layout-label { width: 84px; flex-shrink: 0; font-size: 13px; color: var(--text-secondary); }
           .layout-options { display: flex; gap: 6px; flex-wrap: wrap; }
           .layout-options .btn-small { min-height: 30px; padding: 4px 12px; font-size: 12.5px; }
+          .layout-theme-row { align-items: flex-start; }
+          .theme-options { gap: 8px; }
+          .theme-card {
+            display: flex; align-items: center; gap: 8px;
+            min-height: 42px; padding: 6px 10px 6px 7px;
+            border: 1px solid rgba(214, 185, 110, 0.22);
+            border-radius: 11px;
+            background: rgba(14, 17, 23, 0.72);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: border-color .18s ease, background .18s ease, transform .18s ease;
+          }
+          .theme-card:hover { border-color: rgba(214, 185, 110, 0.52); transform: translateY(-1px); }
+          .theme-card.is-active {
+            border-color: rgba(240, 216, 148, 0.8);
+            background: rgba(214, 185, 110, 0.12);
+            box-shadow: inset 0 0 0 1px rgba(240, 216, 148, 0.16);
+          }
+          .theme-swatch {
+            display: flex; flex-direction: column; gap: 2px;
+            width: 22px; height: 28px; padding: 2px;
+            border-radius: 6px; overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: #080a0e;
+          }
+          .theme-swatch i { flex: 1; border-radius: 2px; }
+          .theme-card-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+          .theme-card-text b { font-size: 12.5px; font-weight: 700; white-space: nowrap; }
+          .theme-card-text small { margin-top: 2px; font-size: 10px; color: var(--text-secondary); }
           .layout-range { flex: 1; min-width: 120px; accent-color: var(--accent-gold); }
           .layout-value { width: 46px; text-align: right; font-size: 12.5px; color: var(--gold-bright); font-variant-numeric: tabular-nums; }
           .layout-desc { font-size: 11.5px; color: var(--text-secondary); margin: 2px 0 4px; }
@@ -166,6 +222,11 @@ export default function LayoutSettings({ layout: rawLayout, onChange, onPreset, 
             .layout-settings { width: 96vw; max-height: 92vh; padding: 12px 14px; }
             .layout-label { width: 100%; }
             .layout-options { flex: 1 1 100%; }
+            .theme-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+            .theme-card { min-width: 0; padding: 6px 5px; gap: 5px; }
+            .theme-card-text b { font-size: 11px; white-space: normal; }
+            .theme-card-text small { display: none; }
+            .theme-swatch { width: 18px; height: 24px; }
           }
         `}</style>
       </div>

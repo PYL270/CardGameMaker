@@ -5395,16 +5395,7 @@ input[type="radio"]:disabled:checked {
   [data-platform="desktop"] .quick-play-bar {
     z-index: 130;
   }
-  /* 出牌面板固定在右侧时，日志窄条让到面板左侧，避免被整块盖住 */
-  [data-platform="desktop"] .game-board.has-action .log-strip {
-    right: 400px;
-  }
-}
-
-@media (min-width: 1024px) and (max-width: 1279px) {
-  [data-platform="desktop"] .game-board.has-action .log-strip {
-    right: 368px;
-  }
+  /* 日志已收进右侧指令栏底部，不再需要给浮层让位 */
 }
 
 @media (orientation: landscape) and (max-height: 520px) {

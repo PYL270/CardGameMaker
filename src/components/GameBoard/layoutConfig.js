@@ -15,6 +15,7 @@ export const HAND_SCALE_MAX = 1.3;
 export const PRESET_SETTINGS = {
   mingsha: {
     preset: 'mingsha',
+    theme: 'ink',
     handScale: 1.05,
     handGap: 'normal',
     opponentScale: 'normal',
@@ -26,6 +27,7 @@ export const PRESET_SETTINGS = {
   },
   classic: {
     preset: 'classic',
+    theme: 'ink',
     handScale: 1,
     handGap: 'normal',
     opponentScale: 'normal',
@@ -37,6 +39,7 @@ export const PRESET_SETTINGS = {
   },
   compact: {
     preset: 'compact',
+    theme: 'ink',
     handScale: 0.9,
     handGap: 'compact',
     opponentScale: 'small',
@@ -74,10 +77,39 @@ export const LOG_POSITION_OPTIONS = [
   { id: 'hidden', name: '隐藏' },
 ];
 
+/**
+ * 界面风格：只改变对局界面的材质、色彩、字体与装饰强度，
+ * 不改变布局结构 / 操作流程，玩家可在布局设置中即时切换。
+ */
+export const THEME_OPTIONS = [
+  {
+    id: 'ink',
+    name: '墨玉鎏金',
+    short: '墨玉',
+    desc: '默认风格：墨玉底、鎏金线、宣纸牌面，沉稳的东方对局感。',
+    swatch: ['#0a0d13', '#d6b96e', '#f3ead6'],
+  },
+  {
+    id: 'modern',
+    name: '青灰极简',
+    short: '极简',
+    desc: '收敛金线与圆环，冷青灰面板、弱装饰、信息优先，接近战术 HUD。',
+    swatch: ['#0d1519', '#8fb9c9', '#e7eef0'],
+  },
+  {
+    id: 'tabletop',
+    name: '暖木典藏',
+    short: '典藏',
+    desc: '暖木桌面、羊皮纸质感、更厚的描边与投影，桌游氛围更浓。',
+    swatch: ['#1b120b', '#e3b96c', '#f3e3c4'],
+  },
+];
+
 const presetIds = Object.keys(PRESET_SETTINGS);
 const handGapIds = HAND_GAP_OPTIONS.map(o => o.id);
 const opponentIds = OPPONENT_SCALE_OPTIONS.map(o => o.id);
 const logIds = LOG_POSITION_OPTIONS.map(o => o.id);
+const themeIds = THEME_OPTIONS.map(o => o.id);
 
 /** 手牌缩放裁剪到 0.85~1.3，保留两位小数 */
 export function clampHandScale(value) {
@@ -114,6 +146,7 @@ export function normalizeLayout(input) {
   const bool = (v, fallback) => (typeof v === 'boolean' ? v : fallback);
   return {
     preset,
+    theme: themeIds.includes(raw.theme) ? raw.theme : base.theme,
     handScale: clampHandScale(raw.handScale === undefined ? base.handScale : raw.handScale),
     handGap: handGapIds.includes(raw.handGap) ? raw.handGap : base.handGap,
     opponentScale: opponentIds.includes(raw.opponentScale) ? raw.opponentScale : base.opponentScale,
@@ -140,11 +173,17 @@ export function opponentScaleOption(layout) {
   return OPPONENT_SCALE_OPTIONS.find(o => o.id === id) || OPPONENT_SCALE_OPTIONS[1];
 }
 
+export function themeOption(layout) {
+  const id = normalizeLayout(layout).theme;
+  return THEME_OPTIONS.find(o => o.id === id) || THEME_OPTIONS[0];
+}
+
 /** .game-board 的 data-* 属性 */
 export function layoutData(layout) {
   const l = normalizeLayout(layout);
   return {
     'data-layout': l.preset,
+    'data-theme': l.theme,
     'data-log-position': l.logPosition,
   };
 }
