@@ -134,7 +134,9 @@ export default function HandZone({
   const [shining, setShining] = useState(false);
   const [flipTick, setFlipTick] = useState(0);
   const [dragId, setDragId] = useState(null);
+  const [autoOverlap, setAutoOverlap] = useState(0);
   const drag = useRef(null);
+  const cardsRef = useRef(null);
   const suppressClick = useRef(false);
   const suppressTimer = useRef(null);
   const api = useRef({});
@@ -281,6 +283,49 @@ export default function HandZone({
   const displayCards = sortHandCards(cards, sortMode);
   const nextMode = nextHandSortMode(sortMode);
 
+  // 手牌较多或屏幕较窄时，自动增加负间距，让整手牌尽量完整落在可视区域内。
+  // 只改外层 wrap 的 margin，不动卡片自身 transform，避免干扰拖拽与 FLIP。
+  useLayoutEffect(() => {
+    const el = cardsRef.current;
+    if (!el) return undefined;
+
+    const measure = () => {
+      const wraps = el.querySelectorAll('.hand-card-wrap');
+      if (wraps.length < 2) {
+        setAutoOverlap(prev => (prev === 0 ? prev : 0));
+        return;
+      }
+      const styles = window.getComputedStyle(el);
+      const gap = parseFloat(styles.columnGap || styles.gap) || 0;
+      const baseOverlap = parseFloat(styles.getPropertyValue('--hand-overlap')) || 0;
+      const cardWidth = wraps[0].offsetWidth || 0;
+      const available = el.clientWidth;
+      if (!cardWidth || !available) return;
+      const natural = wraps.length * cardWidth + (wraps.length - 1) * (gap + baseOverlap);
+      const overflow = natural - available;
+      if (overflow <= 2) {
+        setAutoOverlap(prev => (prev === 0 ? prev : 0));
+        return;
+      }
+      const needed = Math.ceil(overflow / (wraps.length - 1));
+      // 最多叠到卡片宽度的 64%，再窄就交给横向滚动，避免完全看不清牌面。
+      const cap = Math.round(cardWidth * 0.64);
+      const next = -Math.min(needed, cap);
+      setAutoOverlap(prev => (prev === next ? prev : next));
+    };
+
+    // 直接测量而不用 requestAnimationFrame：后台标签页/无头环境里 rAF 会被节流，
+    // 会导致手牌第一次渲染时没有及时收拢。
+    measure();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    observer?.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [displayCards.length, sortMode]);
+
   const arrange = () => {
     if (animating || cards.length === 0) return;
     const reduce = prefersReducedMotion();
@@ -378,7 +423,10 @@ export default function HandZone({
         </button>
       </div>
 
-      <div className="hand-cards">
+      <div
+        className="hand-cards"
+        ref={cardsRef}
+        style={{ '--hand-auto-overlap': `${autoOverlap}px` }}>
         {cards.length === 0 && <span className="empty-hand">{emptyText}</span>}
         {displayCards.map((card, index) => {
           const id = cardKey(card);

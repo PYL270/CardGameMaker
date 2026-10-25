@@ -807,7 +807,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
 
   return (
     <div
-      className={`game-board ${isSpectator ? 'spectating' : ''} ${shake === 'hard' ? 'shake-hard' : shake === 'soft' ? 'shake-soft' : ''}`}
+      className={`game-board ${isSpectator ? 'spectating' : ''} ${pendingAction && !isSpectator ? 'has-action' : ''} ${shake === 'hard' ? 'shake-hard' : shake === 'soft' ? 'shake-soft' : ''}`}
       {...layoutData(layout)}
       style={layoutStyle(layout)}>
       {selfPlayer?.usedJiu && <div className="jiu-ambience" aria-hidden="true" />}
@@ -1665,6 +1665,8 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         }
         .hand-toolbar {
           display: flex; align-items: center; gap: 10px;
+          flex-wrap: nowrap;
+          min-width: 0;
           font-size: 12px; color: var(--text-secondary);
         }
         .hand-title { color: var(--accent-gold); font-weight: 700; font-size: 13px; }
@@ -1675,7 +1677,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           border-radius: 8px; padding: 1px 8px;
           font-variant-numeric: tabular-nums;
         }
-        .hand-hint { flex: 1; opacity: 0.8; }
+        .hand-hint { flex: 1; min-width: 0; opacity: 0.8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .hand-cards {
           display: flex; gap: var(--hand-gap, 8px); flex-wrap: nowrap; align-items: flex-end;
           justify-content: center;
@@ -1686,7 +1688,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           padding-bottom: 2px;
           perspective: 700px;
         }
-        .hand-card-wrap { position: relative; margin-left: var(--hand-overlap, 0px); }
+        .hand-card-wrap { position: relative; margin-left: calc(var(--hand-overlap, 0px) + var(--hand-auto-overlap, 0px)); }
         .hand-cards .hand-card-wrap:first-child { margin-left: 0; }
         .hand-zone .hand-card-wrap:hover,
         .hand-zone .hand-card-wrap.selected-wrap { z-index: 45 !important; }
@@ -1715,14 +1717,19 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         .hand-zone.hand-shining .game-card,
         .hand-zone.hand-shining .hand-card-wrap { transition: none; }
         .hand-zone .card-brief {
-          font-size: 9px;
-          line-height: 1.3;
-          color: rgba(58, 48, 30, 0.64);
-          max-width: 74px;
+          font-size: 9.5px;
+          line-height: 1.32;
+          color: rgba(52, 42, 26, 0.78);
+          max-width: 78px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
           margin-top: 1px;
+        }
+        .hand-zone .card-name {
+          font-size: 13px;
+          font-weight: 800;
+          color: #2c2416;
         }
         .disabled-card { opacity: 0.45; }
         .selectable-card { cursor: pointer; }
@@ -1860,7 +1867,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         .game-board[data-layout="mingsha"] .self-zone {
           flex-direction: row-reverse; /* 自己武将卡固定在左下，手牌区在右侧 */
           align-items: flex-end; gap: 10px;
-          padding: 2px 10px calc(6px + env(safe-area-inset-bottom));
+          padding: 2px 10px calc(10px + env(safe-area-inset-bottom));
         }
         /* 人数多时自动缩小对手卡而不是换行溢出 */
         .game-board[data-layout="mingsha"] .other-players.opponents-5 .player-area,
@@ -1908,7 +1915,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         .game-board[data-layout="compact"] .other-players { flex-wrap: wrap; gap: 6px; }
         .game-board[data-layout="compact"] .board-center { min-height: 60px; }
         .game-board[data-layout="compact"] .self-zone {
-          padding: 2px 6px calc(4px + env(safe-area-inset-bottom)); gap: 6px;
+          padding: 2px 6px calc(8px + env(safe-area-inset-bottom)); gap: 6px;
         }
         .game-board[data-layout="compact"] .self-character { width: 172px; }
         .game-board[data-layout="compact"] .hand-zone { padding: 6px 8px; }
