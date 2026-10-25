@@ -5748,3 +5748,61 @@ html[data-big-hud="on"] .game-board .hub-round {
   html[data-big-hud="on"] .game-board .board-header .phase-info { font-size: 12px; }
   html[data-big-hud="on"] .game-board .board-header .deck-info { font-size: 12px; padding: 3px 8px; }
 }
+
+/* ============================================================
+   桌面宽屏适配：设置 / 联机 / 音频 / 背景 / 编辑器
+   1024–1599 保持两栏并居中；≥1600 放宽栏宽与列数
+   ============================================================ */
+@media (min-width: 1024px) {
+  [data-platform="desktop"] .settings-page .page-header {
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  [data-platform="desktop"] .settings-page .settings-content {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+
+@media (min-width: 1600px) {
+  [data-platform="desktop"] .settings-page { padding: 28px 40px; }
+  [data-platform="desktop"] .settings-page .page-header {
+    max-width: 1560px;
+    margin-bottom: 26px;
+  }
+  [data-platform="desktop"] .settings-page .settings-content {
+    max-width: 1560px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 22px;
+  }
+  [data-platform="desktop"] .settings-page .settings-content .apk-panel,
+  [data-platform="desktop"] .settings-page .settings-content .mobile-capability-notice {
+    grid-column: span 3;
+  }
+
+  [data-platform="desktop"] .online-page .page-header,
+  [data-platform="desktop"] .online-page .online-layout {
+    max-width: 1440px;
+  }
+  [data-platform="desktop"] .online-page .online-layout {
+    grid-template-columns: minmax(0, 760px) minmax(320px, 1fr);
+    gap: 30px;
+  }
+
+  [data-platform="desktop"] .audio-shell {
+    width: min(1440px, 100%);
+    grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+    column-gap: 34px;
+  }
+
+  [data-platform="desktop"] .bg-shell {
+    width: min(1440px, 100%);
+  }
+
+  [data-platform="desktop"] .workshop-layout {
+    max-width: 1560px;
+    grid-template-columns: minmax(760px, 1fr) 420px;
+    gap: 32px;
+  }
+}

@@ -949,7 +949,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
 
       {/* 顶部信息栏 */}
       <div className="board-header">
-        <button className="btn btn-small header-action" onClick={handleExit}>
+        <button className="btn btn-small header-action" title="退出对局并返回主菜单" aria-label="退出对局" onClick={handleExit}>
           <Icon name="exit" size={15} /><span className="btn-label">退出</span>
         </button>
         <span className="deck-info" title="牌堆剩余 / 总数">
@@ -984,7 +984,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
             <span className="btn-label">{autoPlay ? '自动中' : '自动'}</span>
           </button>
         )}
-        <button className="btn btn-small header-action" onClick={() => setShowGuide(true)}>
+        <button className="btn btn-small header-action" title="查看牌与规则说明" aria-label="查看说明" onClick={() => setShowGuide(true)}>
           <Icon name="book" size={15} /><span className="btn-label">说明</span>
         </button>
         {online.active && (
@@ -1003,7 +1003,10 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           </button>
         )}
         {layout.logPosition !== 'hidden' && (
-          <button className="btn btn-small header-action" onClick={() => setShowLog(v => !v)}>
+          <button className="btn btn-small header-action"
+            title={showLog ? '收起对局日志' : '展开对局日志'}
+            aria-label={showLog ? '收起日志' : '展开日志'}
+            onClick={() => setShowLog(v => !v)}>
             <Icon name="log" size={15} />
             <span className="btn-label">{showLog ? '隐藏日志' : '日志'}</span>
           </button>
@@ -1031,7 +1034,10 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           </button>
         )}
         {canRestart && (
-          <button className="btn btn-small header-action" onClick={handleRestart} disabled={restarting}>
+          <button className="btn btn-small header-action"
+            title={online.active ? '重新开始本局' : '重新开始一局'}
+            aria-label="重新开始"
+            onClick={handleRestart} disabled={restarting}>
             <Icon name="refresh" size={15} /><span className="btn-label">重开</span>
           </button>
         )}
@@ -2279,6 +2285,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           .game-board .table-hub::before { width: min(50vh, 430px); }
           .game-board .table-hub::after { width: min(42vh, 370px); }
           .game-board .board-main { gap: 10px; }
+          .game-board .hand-cards { padding: 0 6px 2px; }
           .game-board .board-header { gap: 8px; }
           .game-board .board-header .phase-info { font-size: 13px; letter-spacing: 0.02em; }
           .game-board .board-header .layout-trigger {
@@ -2290,6 +2297,53 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           .game-board { --rail-w: 360px; --rail-pad: 18px; }
           .game-board .board-center .action-panel { top: 70px !important; }
           .game-board .tactical-pulse { bottom: 120px; }
+        }
+
+        /* 窄桌顶栏：图标化，给阶段信息留出空间 */
+        @media (min-width: 721px) and (max-width: 1180px) {
+          .game-board .board-header .header-action { padding: 4px 8px; }
+          .game-board .board-header .header-action .btn-label { display: none; }
+          .game-board .board-header .header-action .ui-icon { margin-right: 0; }
+        }
+
+        /* 宽屏桌面：放大牌面与右栏，避免 1920 下内容过散 */
+        @media (min-width: 1600px) {
+          .game-board { --rail-w: 460px; --rail-pad: 30px; }
+          .game-board .board-header { padding: 10px 18px; gap: 10px; }
+          .game-board .board-header .phase-info { font-size: 15px; }
+          .game-board .hand-zone { padding: 10px 16px 12px; }
+          .game-board .hand-title { font-size: 15px; }
+          .game-board .hand-cards {
+            padding: 0 10px 4px;
+            min-height: calc(162px * var(--hand-scale, 1));
+          }
+          .game-board[data-layout] .hand-zone .game-card {
+            width: calc(112px * var(--hand-scale, 1));
+            height: calc(164px * var(--hand-scale, 1));
+          }
+          .game-board[data-layout] .self-character {
+            width: 270px;
+            padding: 14px 16px;
+          }
+          .game-board[data-layout] .other-players .player-area {
+            width: calc(190px * var(--opponent-scale, 1)) !important;
+            min-width: calc(174px * var(--opponent-scale, 1)) !important;
+            padding: calc(14px * var(--opponent-scale, 1));
+          }
+          .game-board[data-layout] .other-players .player-avatar {
+            width: calc(52px * var(--opponent-scale, 1));
+            height: calc(52px * var(--opponent-scale, 1));
+            font-size: calc(22px * var(--opponent-scale, 1));
+          }
+          .game-board[data-layout] .other-players .player-name {
+            font-size: calc(15px * var(--opponent-scale, 1));
+          }
+          .game-board .hub-rose {
+            width: min(62vh, 560px);
+            height: min(62vh, 560px);
+          }
+          .game-board .table-hub::before { width: min(56vh, 510px); }
+          .game-board .table-hub::after { width: min(46vh, 420px); }
         }
 
         /* ===== 可读性：阶段轨道 / 场面信息 / 回合核心 ===== */

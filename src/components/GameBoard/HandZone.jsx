@@ -299,11 +299,14 @@ export default function HandZone({
       const gap = parseFloat(styles.columnGap || styles.gap) || 0;
       const baseOverlap = parseFloat(styles.getPropertyValue('--hand-overlap')) || 0;
       const cardWidth = wraps[0].offsetWidth || 0;
-      const available = el.clientWidth;
+      // clientWidth 含左右 padding；手牌实际可占用宽度要扣掉 padding，
+      // 否则最后一张会贴边甚至被 overflow 裁掉几像素。
+      const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
+      const available = Math.max(0, el.clientWidth - padX);
       if (!cardWidth || !available) return;
       const natural = wraps.length * cardWidth + (wraps.length - 1) * (gap + baseOverlap);
       const overflow = natural - available;
-      if (overflow <= 2) {
+      if (overflow <= 4) {
         setAutoOverlap(prev => (prev === 0 ? prev : 0));
         return;
       }
