@@ -1,0 +1,31 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+.env
+.env.local
+scripts/.smoke*/
+scripts/tmp-*
+launcher.log
+
+# 测试日志 / 截图 / 报告（本地产物，不入库）
+*.log
+/*.png
+/*.err
+test-report.md
+
+# 本地运行时与大体积素材
+.tools/
+voice_service/piper/
+voice_refs/test-output.wav
+Thumbs.db
+
+# Android 构建产物 / 本地工具链（体积大，不入库）
+mobile/android/build/
+mobile/android/gen/
+mobile/android/assets/www/
+mobile/android/res/
+mobile/android/debug.keystore
+mobile/tools/
+public/apk/*.apk
+

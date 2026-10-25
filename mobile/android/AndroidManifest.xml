@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  CardGameMaker Android 清单模板。
+  构建时由 scripts/build-apk.mjs 替换 @VERSION_CODE@ / @VERSION_NAME@ 后使用。
+  原生 WebView 方案：无 Gradle，aapt2/javac/d8/zipalign/apksigner 直接打包。
+  允许明文 HTTP 的原因是：页面由 App 内 127.0.0.1:8765 的本地静态服务提供。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.cardgamemaker.app"
+    android:versionCode="@VERSION_CODE@"
+    android:versionName="@VERSION_NAME@">
+
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+
+    <!-- 本地 127.0.0.1:8765 的 ServerSocket/WebView 访问需要 INTERNET 权限（仅回环，不主动外联） -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:label="卡牌游戏制作器"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="true"
+        android:hardwareAccelerated="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|smallestScreenSize|uiMode|density"
+            android:screenOrientation="sensorLandscape">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

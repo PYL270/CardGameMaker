@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="34%" r="82%">
+      <stop offset="0" stop-color="#17222e"/>
+      <stop offset="0.42" stop-color="#0c141d"/>
+      <stop offset="0.78" stop-color="#070c12"/>
+      <stop offset="1" stop-color="#030508"/>
+    </radialGradient>
+    <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#e8cf94" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="#c9a94f" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#c9a94f" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff8df"/>
+      <stop offset="0.28" stop-color="#f3dd9b"/>
+      <stop offset="0.55" stop-color="#d6b96e"/>
+      <stop offset="0.78" stop-color="#b18e43"/>
+      <stop offset="1" stop-color="#82652d"/>
+    </linearGradient>
+    <linearGradient id="gold2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9d29a"/>
+      <stop offset="0.5" stop-color="#c9a94f"/>
+      <stop offset="1" stop-color="#8f7035"/>
+    </linearGradient>
+    <linearGradient id="hilt" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#241311"/>
+      <stop offset="0.5" stop-color="#4a2a20"/>
+      <stop offset="1" stop-color="#1c0f0d"/>
+    </linearGradient>
+    <radialGradient id="seal" cx="38%" cy="32%" r="75%">
+      <stop offset="0" stop-color="#b84336"/>
+      <stop offset="0.6" stop-color="#8f2b22"/>
+      <stop offset="1" stop-color="#5d1712"/>
+    </radialGradient>
+    <filter id="blur30" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="30"/>
+    </filter>
+    <filter id="blur8" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+    <filter id="grain">
+      <feTurbulence type="fractalNoise" baseFrequency="0.92" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+    </filter>
+  </defs>
+
+  <!-- 墨玉底 -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <circle cx="512" cy="505" r="430" fill="url(#halo)"/>
+  <circle cx="512" cy="505" r="330" fill="#0b1514" opacity="0.55" filter="url(#blur30)"/>
+
+  <!-- 纸纹颗粒 -->
+  <rect width="1024" height="1024" filter="url(#grain)" opacity="0.055" style="mix-blend-mode:overlay"/>
+
+  <!-- 远山/流云暗纹 -->
+  <g fill="none" stroke="#d6b96e" stroke-linecap="round" opacity="0.10">
+    <path d="M96 792 Q 236 704 402 748 T 700 742" stroke-width="3"/>
+    <path d="M120 840 Q 300 768 468 804 T 912 786" stroke-width="2"/>
+    <path d="M190 236 Q 330 186 470 214" stroke-width="2" opacity="0.7"/>
+    <path d="M560 190 Q 700 166 842 210" stroke-width="2" opacity="0.6"/>
+  </g>
+
+  <!-- 外框双层 -->
+  <rect x="26" y="26" width="972" height="972" rx="208" fill="none" stroke="url(#gold)" stroke-opacity="0.55" stroke-width="3"/>
+  <rect x="46" y="46" width="932" height="932" rx="190" fill="none" stroke="#d6b96e" stroke-opacity="0.20" stroke-width="1.6"/>
+  <rect x="64" y="64" width="896" height="896" rx="174" fill="none" stroke="#8f7035" stroke-opacity="0.18" stroke-width="1"/>
+
+  <!-- 玉石圆盘 -->
+  <circle cx="512" cy="486" r="340" fill="#0d1a19" opacity="0.72"/>
+  <circle cx="512" cy="486" r="340" fill="none" stroke="url(#gold)" stroke-opacity="0.55" stroke-width="2.6"/>
+  <circle cx="512" cy="486" r="316" fill="none" stroke="#d6b96e" stroke-opacity="0.26" stroke-width="1.6"/>
+  <circle cx="512" cy="486" r="296" fill="none" stroke="#d6b96e" stroke-opacity="0.10" stroke-width="1"/>
+
+  <!-- 十字准星微量 -->
+  <g stroke="url(#gold)" stroke-opacity="0.16" stroke-width="2">
+    <path d="M512 118v44M512 810v44M144 486h44M836 486h44"/>
+  </g>
+
+  <!-- 刀光辉光 -->
+  <g transform="translate(512 486)" opacity="0.5" filter="url(#blur8)">
+    <g transform="rotate(45)">
+      <path d="M0,-318 L38,-258 L26,118 L-26,118 L-38,-258 Z" fill="#d6b96e"/>
+    </g>
+    <g transform="rotate(-45)">
+      <path d="M0,-318 L38,-258 L26,118 L-26,118 L-38,-258 Z" fill="#d6b96e"/>
+    </g>
+  </g>
+
+  <!-- 交叉双刀 -->
+  <g transform="translate(512 486)">
+    <!-- 左刀 -->
+    <g transform="rotate(-45)">
+      <path d="M0,-320 L40,-258 L27,118 L-27,118 L-40,-258 Z" fill="url(#gold)" stroke="#6f5526" stroke-width="2"/>
+      <path d="M0,-306 L8,-268 L6,112 L-6,112 L-8,-268 Z" fill="#fff6d8" opacity="0.45"/>
+      <rect x="-92" y="118" width="184" height="28" rx="13" fill="url(#gold2)" stroke="#6f5526" stroke-width="2"/>
+      <rect x="-24" y="146" width="48" height="158" rx="20" fill="url(#hilt)" stroke="#8a5a34" stroke-width="2"/>
+      <g stroke="#d6b96e" stroke-opacity="0.45" stroke-width="4">
+        <path d="M-20 176 L20 166M-20 204 L20 194M-20 232 L20 222M-20 260 L20 250"/>
+      </g>
+      <circle cx="0" cy="320" r="30" fill="url(#gold2)" stroke="#6f5526" stroke-width="2"/>
+      <circle cx="0" cy="320" r="14" fill="#2a1a12" opacity="0.65"/>
+    </g>
+    <!-- 右刀 -->
+    <g transform="rotate(45)">
+      <path d="M0,-320 L40,-258 L27,118 L-27,118 L-40,-258 Z" fill="url(#gold)" stroke="#6f5526" stroke-width="2"/>
+      <path d="M0,-306 L8,-268 L6,112 L-6,112 L-8,-268 Z" fill="#fff6d8" opacity="0.45"/>
+      <rect x="-92" y="118" width="184" height="28" rx="13" fill="url(#gold2)" stroke="#6f5526" stroke-width="2"/>
+      <rect x="-24" y="146" width="48" height="158" rx="20" fill="url(#hilt)" stroke="#8a5a34" stroke-width="2"/>
+      <g stroke="#d6b96e" stroke-opacity="0.45" stroke-width="4">
+        <path d="M-20 176 L20 166M-20 204 L20 194M-20 232 L20 222M-20 260 L20 250"/>
+      </g>
+      <circle cx="0" cy="320" r="30" fill="url(#gold2)" stroke="#6f5526" stroke-width="2"/>
+      <circle cx="0" cy="320" r="14" fill="#2a1a12" opacity="0.65"/>
+    </g>
+    <!-- 中心剑光 -->
+    <circle cx="0" cy="0" r="16" fill="#fff6d8" opacity="0.85"/>
+    <circle cx="0" cy="0" r="40" fill="none" stroke="#fff6d8" stroke-opacity="0.28" stroke-width="2"/>
+  </g>
+
+  <!-- 星点 -->
+  <g fill="#f3dd9b">
+    <circle cx="214" cy="344" r="4" opacity="0.55"/>
+    <circle cx="806" cy="300" r="3" opacity="0.4"/>
+    <circle cx="818" cy="654" r="4" opacity="0.45"/>
+    <circle cx="196" cy="652" r="3" opacity="0.35"/>
+  </g>
+
+  <!-- 朱砂印章 -->
+  <g transform="translate(762 780) rotate(-7)">
+    <rect x="-54" y="-54" width="108" height="108" rx="16" fill="url(#seal)" stroke="#e8c98f" stroke-opacity="0.55" stroke-width="2"/>
+    <rect x="-44" y="-44" width="88" height="88" rx="10" fill="none" stroke="#f3dfae" stroke-opacity="0.35" stroke-width="1.4"/>
+    <text x="0" y="24" text-anchor="middle" font-family="'KaiTi','STKaiti','Songti SC',serif" font-size="66" font-weight="700" fill="#f6e7bd">牌</text>
+  </g>
+
+  <!-- 底部暗角 -->
+  <rect width="1024" height="1024" fill="url(#bg)" opacity="0.10" style="mix-blend-mode:multiply"/>
+</svg>
