@@ -319,6 +319,7 @@ async function main() {
   const gFk = await mkGame('cls_simayi', 'plain', true);
   const fk = gFk.players[0];
   const fkSrc = gFk.players[1];
+  fk.skills = fk.skills.filter(s => s.id !== 'cls_yinren'); // 隔离测试【反馈】
   fkSrc.drawCards([new Card({ name: '闪', suit: 'heart', number: 2, type: 'basic' })]);
   const fkBefore = fk.handCards.length;
   const srcBefore = fkSrc.handCards.length;
@@ -1321,6 +1322,23 @@ async function main() {
   ffaLose.players[0].die();
   assert(ffaLose.checkWinLose() === 'lose', 'ffa 玩家本人阵亡判负（行为不变）');
 
+  console.log('\n[32b] 投降结束对局');
+  const surrenderGame = new Game();
+  await surrenderGame.init([{ name: '投降者', isAI: false }, { name: '对手', isAI: true }]);
+  const surrenderLogs = [];
+  surrenderGame.onLog = (log) => surrenderLogs.push(log);
+  assert(surrenderGame.surrender(surrenderGame.players[0]) === true, '存活玩家可以投降');
+  assert(surrenderGame.status === 'finished', '投降后对局立即结束');
+  assert(surrenderGame.surrenderSeat === 0, '记录投降座位');
+  assert(surrenderGame.getGameState().surrenderSeat === 0, '游戏状态携带投降座位');
+  assert(surrenderLogs.some(l => l.message.includes('投降')), '投降写入对局日志');
+  assert(surrenderGame.surrender(surrenderGame.players[1]) === false, '对局结束后不能重复投降');
+  const surrenderSeatGame = new Game();
+  await surrenderSeatGame.init([{ name: 'A', isAI: false }, { name: 'B', isAI: false }]);
+  assert(surrenderSeatGame.surrender(1) === true && surrenderSeatGame.surrenderSeat === 1,
+    '支持按座位号投降（联机房主结算）');
+  assert(surrenderSeatGame.surrender(99) === false, '非法座位投降被拒绝');
+
   console.log('\n[33] 组队 AI 目标过滤 / 求桃 / AOE');
   const tmAi = new Game();
   tmAi.config.teamMode = '2v2';
@@ -2198,6 +2216,7 @@ async function main() {
   const gFk42 = await mkCharGame('cls_simayi', ['plain42']);
   const fk42 = gFk42.players[0];
   const fkSrc42 = gFk42.players[1];
+  fk42.skills = fk42.skills.filter(s => s.id !== 'cls_yinren'); // 隔离测试【反馈】
   fkSrc42.handCards = [];
   fkSrc42.drawCards([new Card({ name: '闪', suit: 'heart', number: 2, type: 'basic' })]);
   const fkBefore42 = fk42.handCardCount;
@@ -2240,7 +2259,123 @@ async function main() {
   assert(dc42.handCardCount === byBefore42 + 2
     && gBy42.logs.some(l => l.message.includes('【闭月】摸2张牌')), '【闭月】强化：结束阶段摸2张牌');
 
-  // 11) 数据/文案审计：10 名武将简介与技能说明已按历史定位重写
+  // 11) 第二技能：每名经典武将至少两条技能，且都有可执行实现
+  assert(CLASSIC_CHARACTERS.every(c => (c.skillIds || []).length >= 2),
+    '10 名经典武将均至少拥有两个技能');
+  const classicSkillIds = new Set(CLASSIC_SKILLS.map(s => s.id));
+  assert(CLASSIC_CHARACTERS.every(c => (c.skillIds || []).every(id => classicSkillIds.has(id))),
+    '武将引用的技能 ID 全部已注册');
+  assert(CLASSIC_SKILLS.every(s => s.description && s.description.length > 0),
+    '所有经典技能都有说明文案');
+
+  // 曹操【魏武】：手牌上限+1
+  const gWw = await mkCharGame('cls_caocao', ['plain42']);
+  assert(gWw.players[0].handLimit === gWw.players[0].hp + 1, '【魏武】手牌上限+1');
+
+  // 刘备【仁望】：结束阶段手牌少于体力时摸1
+  const gRw = await mkCharGame('cls_liubei', ['plain42']);
+  const lbRw = gRw.players[0];
+  lbRw.handCards = [];
+  await gRw.fireTiming('phaseEnd', { player: lbRw, phase: 'finish' });
+  assert(lbRw.handCardCount >= 1, '【仁望】结束阶段补1张牌');
+
+  // 张飞【当阳】：低血时手牌上限与攻击范围各+1
+  const gDy = await mkCharGame('cls_zhangfei', ['plain42']);
+  const zfDy = gDy.players[0];
+  zfDy.hp = 2;
+  assert(zfDy.handLimit === zfDy.hp + 1 && zfDy.getAttackRange() === 2,
+    '【当阳】低血时手牌上限/攻击范围+1');
+  zfDy.hp = 3;
+  assert(zfDy.handLimit === zfDy.hp && zfDy.getAttackRange() === 1,
+    '【当阳】体力恢复后加成消失');
+
+  // 诸葛亮【观星】：准备阶段把价值最高的牌置于牌堆顶
+  const gGx = await mkCharGame('cls_zhugeliang', ['plain42']);
+  const zgGx = gGx.players[0];
+  const gxLow = new Card({ name: '闪', suit: 'heart', number: 2, type: 'basic' });
+  const gxMid = new Card({ name: '杀', suit: 'spade', number: 7, type: 'basic' });
+  const gxHigh = new Card({ name: '桃', suit: 'heart', number: 3, type: 'basic' });
+  gxLow.ai = { order: 1 };
+  gxMid.ai = { order: 3 };
+  gxHigh.ai = { order: 9 };
+  gGx.deck.cardPile = [gxLow, gxHigh, gxMid];
+  await gGx.fireTiming('phaseBegin', { player: zgGx, phase: 'prepare' });
+  assert(gGx.deck.cardPile[gGx.deck.cardPile.length - 1] === gxHigh,
+    '【观星】把最高价值牌置于牌堆顶');
+
+  // 黄月英【奇才】：顺手牵羊不受距离限制
+  const gQc = await mkCharGame('cls_huangyueying', ['plain42', 'plain42', 'plain42']);
+  const hyQc = gQc.players[0];
+  const farQc = gQc.players[2];
+  farQc.drawCards([new Card({ name: '闪', suit: 'heart', number: 2, type: 'basic' })]);
+  assert(gQc.getValidTargets(hyQc, '顺手牵羊').includes(farQc),
+    '【奇才】顺手牵羊可指定距离2的角色');
+  const gNoQc = await mkCharGame('plain42', ['plain42', 'plain42', 'plain42']);
+  const plainQc = gNoQc.players[0];
+  const farNoQc = gNoQc.players[2];
+  farNoQc.drawCards([new Card({ name: '闪', suit: 'heart', number: 2, type: 'basic' })]);
+  assert(!gNoQc.getValidTargets(plainQc, '顺手牵羊').includes(farNoQc),
+    '对照：无【奇才】时顺手牵羊仍受距离限制');
+
+  // 周瑜【火计】：弃红牌造成1点火焰伤害
+  const gHj = await mkCharGame('cls_zhouyu', ['plain42']);
+  const zyHj = gHj.players[0];
+  const targetHj = gHj.players[1];
+  zyHj.handCards = [new Card({ name: '杀', suit: 'heart', number: 7, type: 'basic' })];
+  targetHj.handCards = [];
+  const hpBeforeHj = targetHj.hp;
+  assert(await gHj.useActiveSkill(zyHj, zyHj.skills.find(s => s.id === 'cls_huoji')) === true,
+    '【火计】可主动发动');
+  assert(targetHj.hp === hpBeforeHj - 1 && zyHj.handCards.length === 0,
+    '【火计】弃红牌并造成1点伤害');
+
+  // 孙权【纳贤】：2v2 中给队友补牌，同队再摸1
+  const gNx = new Game();
+  gNx.config.teamMode = '2v2';
+  await gNx.init([
+    { name: '孙权', characterId: 'cls_sunquan', team: 0 },
+    { name: '队友', characterId: 'cls_caocao', team: 0 },
+    { name: '敌1', characterId: 'cls_liubei', team: 1 },
+    { name: '敌2', characterId: 'cls_guanyu', team: 1 },
+  ]);
+  const sqNx = gNx.players[0];
+  const allyNx = gNx.players[1];
+  sqNx.handCards = [new Card({ name: '杀', suit: 'spade', number: 7, type: 'basic' })];
+  allyNx.handCards = [];
+  assert(await gNx.useActiveSkill(sqNx, sqNx.skills.find(s => s.id === 'cls_naxian')) === true,
+    '【纳贤】可主动发动');
+  assert(allyNx.handCardCount === 1 && sqNx.handCardCount === 1,
+    '【纳贤】队友摸1；同队孙权再摸1（弃1净0）');
+
+  // 貂蝉【离间】：目标有杀则弃杀，无杀则受伤
+  const gLj = await mkCharGame('cls_diaochan', ['plain42']);
+  const dcLj = gLj.players[0];
+  const maleLj = gLj.players[1];
+  dcLj.handCards = [new Card({ name: '杀', suit: 'club', number: 7, type: 'basic' })];
+  maleLj.handCards = [new Card({ name: '杀', suit: 'spade', number: 8, type: 'basic' })];
+  assert(await gLj.useActiveSkill(dcLj, dcLj.skills.find(s => s.id === 'cls_lijian')) === true,
+    '【离间】可主动发动');
+  assert(maleLj.handCardCount === 0, '【离间】目标用【杀】化解');
+  const gLj2 = await mkCharGame('cls_diaochan', ['plain42']);
+  const dcLj2 = gLj2.players[0];
+  const maleLj2 = gLj2.players[1];
+  dcLj2.handCards = [new Card({ name: '杀', suit: 'club', number: 7, type: 'basic' })];
+  maleLj2.handCards = [];
+  const hpLj2 = maleLj2.hp;
+  await gLj2.useActiveSkill(dcLj2, dcLj2.skills.find(s => s.id === 'cls_lijian'));
+  assert(maleLj2.hp === hpLj2 - 1, '【离间】目标无【杀】时受到1点伤害');
+
+  // 司马懿【隐忍】：低血受伤后摸1
+  const gYr = await mkCharGame('cls_simayi', ['plain42']);
+  const syYr = gYr.players[0];
+  const srcYr = gYr.players[1];
+  syYr.hp = 2;
+  syYr.handCards = [];
+  srcYr.handCards = [];
+  await gYr.dealDamage({ source: srcYr, target: syYr, num: 1 });
+  assert(syYr.handCardCount === 1, '【隐忍】体力≤2受伤后摸1张');
+
+  // 12) 数据/文案审计：10 名武将简介与技能说明已按历史定位重写
   assert(CLASSIC_CHARACTERS.length === 10
     && CLASSIC_CHARACTERS.every(c => c.description && c.description.length >= 10),
     '10 名经典武将简介均已重写（历史定位）');

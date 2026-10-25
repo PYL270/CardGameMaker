@@ -7,13 +7,13 @@ import Icon from '../ui/Icon';
  */
 export default function ResultOverlay({
   won, round, onRestart, onMenu, restarting = false, canRestart = true, menuLabel = '返回主菜单',
-  subtitle = null,
+  subtitle = null, title = null, icon = null,
 }) {
   return (
     <div className="overlay">
       <div className="panel result-panel animate-fade-in">
-        <div className={`result-icon ${won ? 'win' : 'lose'}`}>{won ? '胜' : '负'}</div>
-        <h2 className={won ? 'win' : 'lose'}>{won ? '胜利！' : '战败'}</h2>
+        <div className={`result-icon ${won ? 'win' : 'lose'}`}>{icon || (won ? '胜' : '负')}</div>
+        <h2 className={won ? 'win' : 'lose'}>{title || (won ? '胜利！' : '战败')}</h2>
         {subtitle && <p className="result-team-sub">{subtitle}</p>}
         <p className="result-sub">共进行 {round} 回合</p>
         <div className="result-actions">

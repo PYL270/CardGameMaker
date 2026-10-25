@@ -1030,13 +1030,30 @@ async function main() {
   const renderBoard = (initialLayout) => renderToString(React.createElement(GameBoard, {
     navigate: noop, preview: previewBase, initialLayout,
   }));
+  const renderSurrenderBoard = (seat) => renderToString(React.createElement(GameBoard, {
+    navigate: noop,
+    initialLayout: defaultLayout(),
+    preview: {
+      ...previewBase,
+      gameState: { ...previewState, status: 'finished', surrenderSeat: seat },
+    },
+  }));
 
   const classicHtml = renderBoard(applyPreset('classic'));
   assert(classicHtml.includes('data-layout="classic"'), '经典式渲染 data-layout="classic"');
   assert(classicHtml.includes('data-theme="ink"'), '经典式默认渲染 data-theme="ink"');
+  assert(classicHtml.includes('surrender-trigger') && classicHtml.includes('投降'),
+    '进行中的对局顶栏提供投降入口');
   const modernHtml = renderBoard(updateLayout(defaultLayout(), { theme: 'modern' }));
   assert(modernHtml.includes('data-theme="modern"') && modernHtml.includes('--hand-scale:1.05'),
     '切换青灰极简后 data-theme 与布局变量同时生效');
+  const selfSurrenderHtml = renderSurrenderBoard(0);
+  assert(selfSurrenderHtml.includes('已投降') && selfSurrenderHtml.includes('你已投降，本局结束'),
+    '自己投降的结算显示“已投降 / 你已投降”');
+  const foeSurrenderHtml = renderSurrenderBoard(1);
+  assert(foeSurrenderHtml.includes('对局结束') && foeSurrenderHtml.includes('对手甲投降')
+    && !foeSurrenderHtml.includes('你已投降，本局结束'),
+  '对手投降时自己判胜并显示对手投降文案');
   assert(classicHtml.includes('--hand-scale:1') && classicHtml.includes('--opponent-scale:1'),
     '经典式 CSS 变量为 1（原布局回归）');
   assert(classicHtml.includes('你的手牌') && classicHtml.includes('手牌 2'),
@@ -1309,6 +1326,9 @@ async function main() {
   };
   const stateSeat0 = serializeState(serializeGameMock, 0);
   assert(stateSeat0.teamMode === '2v2', '联机状态快照携带 teamMode');
+  assert(stateSeat0.surrenderSeat === null, '未投降时联机快照 surrenderSeat 为 null');
+  assert(serializeState({ ...serializeGameMock, surrenderSeat: 1 }, 0).surrenderSeat === 1,
+    '联机快照携带投降座位，客户端可显示投降结算');
   assert(stateSeat0.players[1].team === 0 && stateSeat0.players[2].team === 1,
     '联机状态快照玩家携带 team');
   assert(Array.isArray(stateSeat0.players[0].handCards)

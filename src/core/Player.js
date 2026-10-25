@@ -115,7 +115,9 @@ export default class Player {
    */
   getAttackRange() {
     const weapon = this.getWeapon();
-    return weapon ? (weapon.range || 1) : 1;
+    let range = weapon ? (weapon.range || 1) : 1;
+    if ((this.skills || []).some(s => s.id === 'cls_dangyang') && this.hp <= 2) range += 1;
+    return range;
   }
 
   /**
@@ -147,6 +149,8 @@ export default class Player {
   get handLimit() {
     let limit = this.hp;
     if ((this.skills || []).some(s => s.id === 'cls_yingzi')) limit += 1;
+    if ((this.skills || []).some(s => s.id === 'cls_weiwu')) limit += 1;
+    if ((this.skills || []).some(s => s.id === 'cls_dangyang') && this.hp <= 2) limit += 1;
     return Math.max(0, limit);
   }
 

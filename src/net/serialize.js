@@ -82,6 +82,7 @@ export function serializePlayerForSeat(player, seat) {
 export function serializeState(game, seat) {
   return {
     status: game.status,
+    surrenderSeat: game.surrenderSeat ?? null,
     teamMode: game.config?.teamMode || 'ffa',
     friendlyFire: game.config?.friendlyFire === true,
     round: game.turn.roundNumber,

@@ -182,6 +182,19 @@ function readStoredAutoTrigger() {
 /**
  * 停止旧对局：解绑回调、放行挂起操作，避免旧循环干扰新对局
  */
+/** 给挂起操作一个安全的返回值，放行旧对局循环 */
+function resolvePendingAction(pendingAction) {
+  if (!pendingAction?.resolve) return;
+  // confirm 必须回 false、选牌必须回空数组、选目标/响应必须回 null，不能一律当作出牌动作
+  const safeValue =
+    (pendingAction.type === 'discard' || pendingAction.type === 'selectCards') ? []
+      : (pendingAction.type === 'respond' || pendingAction.type === 'chooseTarget'
+        || pendingAction.type === 'equipReplace') ? null
+        : pendingAction.type === 'confirm' ? false
+          : { type: 'endPlay' };
+  pendingAction.resolve(safeValue);
+}
+
 function disposeGame(game, pendingAction) {
   if (!game) return;
   try {
@@ -195,17 +208,7 @@ function disposeGame(game, pendingAction) {
     game.onLog = null;
     game.status = 'finished';
     hostRequests.clear();
-    if (pendingAction?.resolve) {
-      // 按挂起操作的类型给出安全返回值，放行旧循环
-      // confirm 必须回 false、选牌必须回空数组、选目标/响应必须回 null，不能一律当作出牌动作
-      const safeValue =
-        (pendingAction.type === 'discard' || pendingAction.type === 'selectCards') ? []
-          : (pendingAction.type === 'respond' || pendingAction.type === 'chooseTarget'
-            || pendingAction.type === 'equipReplace') ? null
-            : pendingAction.type === 'confirm' ? false
-              : { type: 'endPlay' };
-      pendingAction.resolve(safeValue);
-    }
+    resolvePendingAction(pendingAction);
   } catch {
     // 忽略清理异常
   }
@@ -273,6 +276,19 @@ function handleNetRelay(msg, api) {
       hostRequests.delete(msg.requestId);
       pending.resolve(msg.payload || null);
     }
+    return;
+  }
+
+  // 联机投降：只接受房主端处理；座位以服务器注入的 from 为准，防止冒用他人座位
+  if (msg.kind === 'surrender') {
+    if (!online.isHost) return;
+    const game = get().game;
+    if (!game || game.status !== 'running') return;
+    const seat = Number(msg.from);
+    if (!Number.isInteger(seat) || seat <= 0) return;
+    const player = game.players.find(p => p.seatNum === seat && !p.isAI);
+    if (!player) return;
+    if (game.surrender(player)) set({ pendingAction: null });
     return;
   }
 
@@ -699,6 +715,34 @@ const useGameStore = create((set, get) => ({
       game.addLog(`对局异常: ${e.message || e}`);
       set({ gameState: game.getGameState(), pendingAction: null });
     });
+  },
+
+  /**
+   * 投降：单机/房主直接结束对局；联机客户端向房主发送 surrender，由房主统一结算并广播。
+   * @returns {boolean} 请求是否已发出/处理
+   */
+  surrenderGame: () => {
+    const { game, online } = get();
+    if (!game || game.status !== 'running') return false;
+    if (online.active && !online.isHost) {
+      if (!online.connected) return false;
+      net.relay(0, { kind: 'surrender', seat: online.seat });
+      set({ pendingAction: null });
+      return true;
+    }
+    const seat = online.active ? (online.seat ?? 0) : 0;
+    const player = game.players.find(p => p.seatNum === seat) || game.players[0];
+    if (!player) return false;
+    const pending = get().pendingAction;
+    const ok = game.surrender(player);
+    if (ok) {
+      // 放行旧循环（联机远端 prompt 也一并结束等待）
+      resolvePendingAction(pending);
+      for (const req of hostRequests.values()) req.resolve(null);
+      hostRequests.clear();
+      set({ pendingAction: null });
+    }
+    return ok;
   },
 
   // 再来一局：沿用上一局配置、组队模式、误伤与自动触发设置，创建全新对局

@@ -31,6 +31,7 @@ import {
   friendlyFireDisabled,
   readDefaultAutoTrigger,
   computeTeamOutcome,
+  playerTeamOf,
 } from './teamConfig';
 import {
   loadLayout,
@@ -126,6 +127,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   const markChatRead = useGameStore(s => s.markChatRead);
   const resolveAction = useGameStore(s => s.resolveAction);
   const restartGame = useGameStore(s => s.restartGame);
+  const surrenderGame = useGameStore(s => s.surrenderGame);
   const leaveOnline = useGameStore(s => s.leaveOnline);
   const characters = useGameStore(s => s.characters);
   const userSkills = useGameStore(s => s.skills);
@@ -137,6 +139,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   ));
   const [showLayoutSettings, setShowLayoutSettings] = useState(false);
   const [showGameSettings, setShowGameSettings] = useState(false);
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const [selectedCards, setSelectedCards] = useState([]);
@@ -211,6 +214,11 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   useEffect(() => {
     if (layout.logPosition === 'hidden') setShowLog(false);
   }, [layout.logPosition]);
+
+  // 对局结束后关闭投降确认框（联机结算/重开同样生效）
+  useEffect(() => {
+    if (gameState?.status !== 'running') setShowSurrenderConfirm(false);
+  }, [gameState?.status]);
 
   // 战局指令台：Ctrl+K / Ctrl+/ 打开；输入框内单独按 / 不触发
   useEffect(() => {
@@ -450,6 +458,11 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     navigate('menu');
   };
 
+  const confirmSurrender = () => {
+    setShowSurrenderConfirm(false);
+    surrenderGame?.();
+  };
+
   // 联机客户端/观战者：等待房主同步首帧
   if (online.active && !gameState) {
     return (
@@ -522,8 +535,32 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       : game?.config?.friendlyFire
   );
   const teamOutcome = computeTeamOutcome(displayPlayers, mySeat, teamMode, selfPlayer);
-  const won = teamOutcome.won;
-  const resultSubtitle = teamOutcome.subtitle;
+  // 投降结算：投降者判负；组队模式队友投降则整队判负；其他玩家视为获胜
+  const surrenderSeat = gameState?.surrenderSeat ?? game?.surrenderSeat ?? null;
+  const hasSurrender = surrenderSeat !== null && surrenderSeat !== undefined;
+  const surrenderer = hasSurrender
+    ? displayPlayers.find(p => Number(p.seatNum) === Number(surrenderSeat))
+    : null;
+  const selfSurrendered = hasSurrender && Number(surrenderSeat) === Number(mySeat);
+  const surrenderTeam = (hasSurrender && teamModeOn && surrenderer)
+    ? playerTeamOf(surrenderer, teamMode)
+    : null;
+  const selfTeam = teamModeOn ? playerTeamOf({ seatNum: mySeat }, teamMode) : null;
+  const surrenderLoss = hasSurrender && (
+    selfSurrendered
+    || (surrenderTeam !== null && selfTeam !== null && surrenderTeam === selfTeam)
+  );
+  const won = hasSurrender ? !surrenderLoss : teamOutcome.won;
+  const resultSubtitle = hasSurrender
+    ? (selfSurrendered
+      ? '你已投降，本局结束'
+      : (surrenderLoss
+        ? '队友投降，本局结束'
+        : `${surrenderer?.name || '对手'}投降，本局结束`))
+    : teamOutcome.subtitle;
+  const resultTitle = hasSurrender
+    ? (selfSurrendered ? '已投降' : (surrenderLoss ? '队伍失败' : '对局结束'))
+    : null;
   const canRestart = !isSpectator && (!online.active || online.isHost);
   const myHand = isSpectator ? [] : (selfPlayer?.handCards || []);
   const deck = gameState.deckInfo || {};
@@ -934,6 +971,13 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           onClick={() => setShowLayoutSettings(true)}>
           <Icon name="layout" size={15} /><span className="btn-label">布局</span>
         </button>
+        {!isSpectator && gameState.status === 'running' && (
+          <button className="btn btn-small header-action surrender-trigger"
+            title="投降：立即结束本局并记为失败"
+            onClick={() => setShowSurrenderConfirm(true)}>
+            <Icon name="alert" size={15} /><span className="btn-label">投降</span>
+          </button>
+        )}
         {canRestart && (
           <button className="btn btn-small header-action" onClick={handleRestart} disabled={restarting}>
             <Icon name="refresh" size={15} /><span className="btn-label">重开</span>
@@ -1170,10 +1214,31 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         </div>
       )}
 
+      {/* 投降确认：游戏内弹层，避免 window.confirm 在手机/联机下阻断 */}
+      {showSurrenderConfirm && (
+        <div className="surrender-overlay" onClick={() => setShowSurrenderConfirm(false)}>
+          <div className="panel surrender-dialog" role="dialog" aria-modal="true" aria-label="确认投降"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="surrender-emblem" aria-hidden="true">降</div>
+            <h3>确认投降？</h3>
+            <p>
+              投降后本局立即结束，并记为失败。
+              {online.active ? '房间内所有玩家会同步看到结算。' : '你可以随后再来一局。'}
+            </p>
+            <div className="surrender-actions">
+              <button className="btn" onClick={() => setShowSurrenderConfirm(false)}>继续对局</button>
+              <button className="btn btn-danger" onClick={confirmSurrender}>确认投降</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 终局结算 */}
       {gameState.status === 'finished' && (
         <ResultOverlay
           won={won}
+          title={resultTitle}
+          icon={hasSurrender ? '降' : null}
           round={gameState.round}
           subtitle={resultSubtitle}
           restarting={restarting}
@@ -2014,6 +2079,72 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           .game-board[data-layout="mingsha"] .hand-title { font-size: 11.5px; }
           .game-board[data-layout="compact"] .board-header { flex-wrap: wrap; }
           .game-board[data-layout="compact"] .other-players { flex-wrap: wrap; }
+        }
+
+        /* ===== 投降 ===== */
+        .surrender-trigger {
+          color: #e0a39b;
+          border-color: rgba(208, 87, 79, 0.38);
+        }
+        .surrender-trigger:hover {
+          color: #ffd2cb;
+          border-color: rgba(208, 87, 79, 0.75);
+        }
+        .surrender-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 1250;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 16px;
+          background: rgba(4, 6, 10, 0.68);
+          -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+          animation: fadeIn 0.2s ease;
+        }
+        .surrender-dialog {
+          width: min(420px, 92vw);
+          padding: 24px 24px 20px;
+          text-align: center;
+          cursor: default;
+        }
+        .surrender-emblem {
+          width: 58px;
+          height: 58px;
+          margin: 0 auto 12px;
+          display: grid;
+          place-items: center;
+          border-radius: 50%;
+          border: 1px solid rgba(208, 87, 79, 0.65);
+          color: #e8a39b;
+          font-family: var(--font-serif);
+          font-size: 26px;
+          font-weight: 800;
+          background: radial-gradient(circle at 35% 28%, rgba(208, 87, 79, 0.18), rgba(10, 12, 17, 0.94) 72%);
+          box-shadow: 0 0 24px rgba(208, 87, 79, 0.16);
+        }
+        .surrender-dialog h3 {
+          color: #f0b0a8;
+          font-size: 20px;
+          margin-bottom: 8px;
+        }
+        .surrender-dialog p {
+          color: var(--text-secondary);
+          font-size: 13px;
+          line-height: 1.65;
+          margin-bottom: 18px;
+        }
+        .surrender-actions {
+          display: flex;
+          gap: 10px;
+          justify-content: center;
+        }
+        .surrender-actions .btn { flex: 1; }
+        @media (max-width: 720px) {
+          .surrender-dialog { padding: 20px 16px 16px; }
+          .surrender-actions { flex-direction: column-reverse; }
+          .surrender-actions .btn { min-height: 44px; }
         }
 
         /* ===== 桌面端：右侧统一指令栏（行动 / 战局脉搏 / 快捷出牌 / 日志） ===== */

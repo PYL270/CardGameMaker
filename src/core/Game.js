@@ -84,6 +84,9 @@ export default class Game extends EventEmitter {
     // 胜利/失败判定
     this.winCondition = null; // (game) => 'win'|'lose'|null
     this.loseCondition = null; // (game) => 'win'|'lose'|null
+
+    // 投降：记录座位号，供 UI 区分“主动投降”与正常胜负
+    this.surrenderSeat = null;
   }
 
   /**
@@ -226,6 +229,8 @@ export default class Game extends EventEmitter {
     const others = this.distance.getOtherAlivePlayers(player)
       .filter(t => this.isTargetAllowed(player, t, cardName))
       .filter(teamAllowed);
+    // 奇才：黄月英使用顺手牵羊/兵粮寸断无距离限制
+    const ignoreTrickDistance = (player.skills || []).some(s => s.id === 'cls_qicai');
     switch (cardName) {
       case '杀': {
         // 关羽【武圣】：使用【杀】无距离限制（仅影响目标计算，武器范围/距离显示逻辑不变）
@@ -239,9 +244,10 @@ export default class Game extends EventEmitter {
           .filter(teamAllowed);
       }
       case '顺手牵羊':
-        return others.filter(t => this.distance.getAttackDistance(player, t) <= 1 && this.hasAnyCard(t));
+        return others.filter(t => (ignoreTrickDistance || this.distance.getAttackDistance(player, t) <= 1)
+          && this.hasAnyCard(t));
       case '兵粮寸断':
-        return others.filter(t => this.distance.getAttackDistance(player, t) <= 1
+        return others.filter(t => (ignoreTrickDistance || this.distance.getAttackDistance(player, t) <= 1)
           && !(t.judgeCards || []).some(c => c.name === '兵粮寸断'));
       case '过河拆桥':
         return others.filter(t => this.hasAnyCard(t));
@@ -563,7 +569,17 @@ export default class Game extends EventEmitter {
       return sorted.slice(0, Math.min(1, Math.max(1, min)));
     }
     if (text.includes('武圣')) {
+      const reds = disposable.filter(c => c.isRed);
+      if (reds.length > 0) return reds.slice(0, 1);
+      // 断杀且只有红桃/闪时，武圣仍可把红牌当杀（保命牌优先，仅作兜底）
+      return sorted.filter(c => c.isRed).slice(0, 1);
+    }
+    if (text.includes('火计')) {
       return disposable.filter(c => c.isRed).slice(0, 1);
+    }
+    if (text.includes('纳贤') || text.includes('离间')) {
+      const picked = disposable.slice(0, 1);
+      if (picked.length > 0) return picked;
     }
     return sorted.slice(0, Math.max(1, min));
   }
@@ -572,9 +588,10 @@ export default class Game extends EventEmitter {
   aiPickSkillTarget(player, candidates, hint = '') {
     const list = (candidates || []).filter(Boolean);
     if (list.length === 0) return null;
-    if (String(hint || '').includes('仁德')) {
+    if (String(hint || '').includes('仁德') || String(hint || '').includes('纳贤')) {
       const allies = list.filter(t => t !== player && !this.isEnemy(player, t));
       const pool = allies.length > 0 ? allies : list.filter(t => t !== player);
+      if (String(hint || '').includes('纳贤') && allies.length === 0) return null;
       const ranked = (pool.length > 0 ? pool : list).slice().sort((a, b) =>
         (a.hp - b.hp) || (a.handCards.length - b.handCards.length));
       return ranked[0] || null;
@@ -616,6 +633,28 @@ export default class Game extends EventEmitter {
       && disposable.some(c => c.isRed)
       && this.getAITargets(player, '杀').length > 0) {
       return { type: 'useSkill', skillId: wusheng.id };
+    }
+
+    // 火计：有红色可弃牌且攻击范围内有敌人时，弃牌换1点火焰伤害
+    const huoji = findSkill('cls_huoji');
+    if (huoji && disposable.some(c => c.isRed)
+      && this.getAITargets(player, '杀').length > 0) {
+      return { type: 'useSkill', skillId: huoji.id };
+    }
+
+    // 纳贤：有可弃牌且有队友时，给队友补牌（团队收益）
+    const naxian = findSkill('cls_naxian');
+    if (naxian && disposable.length > 0) {
+      const allies = this.getAlivePlayers().filter(p => p !== player && !this.isEnemy(player, p));
+      if (allies.length > 0) return { type: 'useSkill', skillId: naxian.id };
+    }
+
+    // 离间：有可弃牌且有男性敌人时，逼其弃【杀】或掉血
+    const lijian = findSkill('cls_lijian');
+    if (lijian && disposable.length > 0) {
+      const males = this.getAlivePlayers().filter(p =>
+        p !== player && this.isEnemy(player, p) && p.character?.sex === 'male');
+      if (males.length > 0) return { type: 'useSkill', skillId: lijian.id };
     }
     return null;
   }
@@ -806,6 +845,7 @@ export default class Game extends EventEmitter {
    */
   async init(playerConfigs = []) {
     this.initClassicContent();
+    this.surrenderSeat = null;
     this.status = GAME_STATUS.PREPARING;
     // 组队/阵营：每次 init 都从 config 读取（重开时由调用方把 teamMode/friendlyFire 写回 config）
     this.teamMode = this.config.teamMode || 'ffa';
@@ -998,6 +1038,28 @@ export default class Game extends EventEmitter {
       return 'lose';
     }
     return null;
+  }
+
+  /**
+   * 投降：立即结束当前对局，并记录投降座位供 UI 显示专属结算文案。
+   * 只允许进行中的对局、存活玩家投降一次。
+   * @param {Player|number} playerOrSeat 玩家对象或座位号
+   * @returns {boolean} 是否成功投降
+   */
+  surrender(playerOrSeat) {
+    if (this.status !== GAME_STATUS.RUNNING) return false;
+    const seat = typeof playerOrSeat === 'number'
+      ? playerOrSeat
+      : playerOrSeat?.seatNum;
+    if (seat === null || seat === undefined) return false;
+    const player = this.players.find(p => p.seatNum === seat);
+    if (!player || !player.isAlive) return false;
+
+    this.surrenderSeat = seat;
+    this.status = GAME_STATUS.FINISHED;
+    this.addLog(`${player.name} 投降，对局结束`);
+    this.notifyStateChange();
+    return true;
   }
 
   /**
@@ -1223,6 +1285,11 @@ export default class Game extends EventEmitter {
         player.drawCards(this.deck.draw(1));
         this.emitUiEffect({ type: 'weapon', player, target, name: '大宛' });
         this.addLog(`【大宛】${player.name} 的【杀】被抵消，摸1张牌`);
+      }
+      // 拖刀：关羽的【杀】被【闪】抵消后摸1张牌
+      if (usedShan && player.hasSkill('cls_tuodao')) {
+        player.drawCards(this.deck.draw(1));
+        this.addLog(`${player.name} 发动【拖刀】摸1张牌`);
       }
       // 青龙偃月刀：被闪避后可追加一张杀（最多追加一次，可选择是否发动）
       const extraSha = player.handCards.find(c => c.name === '杀');
@@ -1860,6 +1927,7 @@ export default class Game extends EventEmitter {
   getGameState() {
     return {
       status: this.status,
+      surrenderSeat: this.surrenderSeat ?? null,
       teamMode: this.teamMode || this.config.teamMode || 'ffa',
       friendlyFire: this.friendlyFire === true,
       autoTrigger: this.autoTrigger === true,

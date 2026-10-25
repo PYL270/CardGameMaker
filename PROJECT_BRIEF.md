@@ -54,7 +54,7 @@
 ### 2.2 初始内容策略（重要）
 
 - 用户最早要求「没有武将/技能」，后来要求「设计经典英雄」。
-- 现状：**内置 10 名经典武将 + 基础角色**，但仍支持在武将/技能编辑器里完全自定义；经典武将不写入用户的 localStorage 自定义列表，而是在 `Game.init()` 时注册进注册表。
+- 现状：**内置 10 名经典武将 + 基础角色，每名经典武将至少 2 个技能**，但仍支持在武将/技能编辑器里完全自定义；自定义武将不强制技能数量，后续允许单技能武将；经典武将不写入用户的 localStorage 自定义列表，而是在 `Game.init()` 时注册进注册表。
 - 未选择武将时使用**基础角色**：4 体力，技能【勤学】【稳守】。
 
 ### 2.3 基础角色
@@ -71,20 +71,20 @@
 
 ### 2.4 经典武将（内置 10 名）
 
-技能 ID 前缀统一 `cls_`，每个技能都有完整 `triggerTiming / triggerSource / usable / forced / filter / cost / content / description`。
+技能 ID 前缀统一 `cls_`，每个技能都有完整 `filter / cost / content / description`；需要事件触发的技能带 `triggerTiming / triggerSource`，纯被动锁定技由引擎在对应节点读取 `hasSkill()`。
 
 | 武将 | ID | 势力/体力 | 技能 | 类型 | 效果 |
 |------|----|-----------|------|------|------|
-| 曹操 | cls_caocao | 魏/4 | 奸雄 cls_jianxiong | 触发（受伤后，每回合1次） | 获得造成伤害的牌 |
-| 刘备 | cls_liubei | 蜀/4 | 仁德 cls_rende | 主动（出牌阶段1次） | 交给其他角色1张手牌，回复1体力 |
-| 孙权 | cls_sunquan | 吴/4 | 制衡 cls_zhiheng | 主动（出牌阶段1次） | 弃任意张手牌，摸等量牌 |
-| 关羽 | cls_guanyu | 蜀/4 | 武圣 cls_wusheng | 主动（受出杀次数限制） | 红色手牌当【杀】使用 |
-| 张飞 | cls_zhangfei | 蜀/4 | 咆哮 cls_paoxiao | 锁定 | 出【杀】无次数限制 |
-| 诸葛亮 | cls_zhugeliang | 蜀/3 | 空城 cls_kongcheng | 锁定 | 无手牌时不能成为【杀】【决斗】目标 |
-| 司马懿 | cls_simayi | 魏/3 | 反馈 cls_fankui | 触发（受伤后，每回合1次） | 获得伤害来源一张手牌 |
-| 周瑜 | cls_zhouyu | 吴/3 | 英姿 cls_yingzi | 锁定 | 摸牌阶段额外摸1张 |
-| 黄月英 | cls_huangyueying | 蜀/3 | 集智 cls_jizhi | 触发 | 使用非延时锦囊时摸1张 |
-| 貂蝉 | cls_diaochan | 群/3 | 闭月 cls_biyue | 触发（结束阶段） | 摸1张 |
+| 曹操 | cls_caocao | 魏/4 | 奸雄 cls_jianxiong / 魏武 cls_weiwu | 触发 / 锁定 | 受伤获得伤害牌 / 手牌上限+1 |
+| 刘备 | cls_liubei | 蜀/4 | 仁德 cls_rende / 仁望 cls_renwang | 主动 / 锁定 | 送牌回血 / 结束阶段手牌少于体力时摸1 |
+| 孙权 | cls_sunquan | 吴/4 | 制衡 cls_zhiheng / 纳贤 cls_naxian | 主动 / 主动 | 弃牌换牌 / 弃1令队友摸1，同队再摸1 |
+| 关羽 | cls_guanyu | 蜀/4 | 武圣 cls_wusheng / 拖刀 cls_tuodao | 主动 / 锁定 | 红牌当杀 / 杀被闪抵消后摸1 |
+| 张飞 | cls_zhangfei | 蜀/4 | 咆哮 cls_paoxiao / 当阳 cls_dangyang | 锁定 / 锁定 | 杀无次数限制 / 体力≤2时手牌上限与攻击范围+1 |
+| 诸葛亮 | cls_zhugeliang | 蜀/3 | 空城 cls_kongcheng / 观星 cls_guanxing | 锁定 / 锁定 | 空手不能被杀/决斗 / 准备阶段整理牌堆顶3张 |
+| 司马懿 | cls_simayi | 魏/3 | 反馈 cls_fankui / 隐忍 cls_yinren | 触发 / 锁定 | 受伤获得来源一张牌 / 体力≤2受伤后摸1 |
+| 周瑜 | cls_zhouyu | 吴/3 | 英姿 cls_yingzi / 火计 cls_huoji | 锁定 / 主动 | 额外摸1、手牌上限+1 / 弃红牌造成1点火焰伤害 |
+| 黄月英 | cls_huangyueying | 蜀/3 | 集智 cls_jizhi / 奇才 cls_qicai | 触发 / 锁定 | 锦囊摸牌 / 顺手、兵粮无距离限制 |
+| 貂蝉 | cls_diaochan | 群/3 | 闭月 cls_biyue / 离间 cls_lijian | 触发 / 主动 | 结束摸2 / 令男性角色弃杀否则受伤 |
 
 相关文件：`src/data/classicCharacters.js`（含 `CLASSIC_SKILLS`、`CLASSIC_CHARACTERS`、`getClassicSkill`）
 
@@ -93,7 +93,7 @@
 - 出牌阶段 `Game.getActiveSkills(player)` 列出可用主动技。
 - 玩家通过 ActionPanel 的技能按钮选择；`Turn.phasePlay` 收到 `{type:'useSkill', skill}` 后调用 `game.useActiveSkill()`。
 - 技能内可用 `game.chooseCards()` / `game.chooseTarget()` 请求选牌/选目标；人类走 UI 回调，无 UI 或 AI 操作时由 `aiPickSkillCards()` / `aiPickSkillTarget()` 按提示与局势选择。
-- AI 已会主动发动**制衡、仁德、武圣**：制衡在低价值牌≥2 时弃2摸3；仁德只在有存活队友且己方受伤时送牌；武圣在断杀且有红色低价值牌时发动。
+- AI 已会主动发动**制衡、仁德、武圣、火计、纳贤、离间**：制衡在低价值牌≥2 时弃2摸3；仁德只在有存活队友且己方受伤时送牌；武圣在断杀且有红色低价值牌时发动；火计在有红牌且攻击范围内有敌人时使用；纳贤只在有队友时补牌；离间在有男性敌人时逼其弃杀。
 - 当前限制：**联机客户端不能发动自定义主动技能**（房主本地可用）。
 
 ### 2.6 推荐出牌 / 自动出牌
@@ -402,8 +402,8 @@ test.bat          # 或 npm run test:all
 
 | 套件 | 命令 | 当前结果 |
 |------|------|----------|
-| 引擎 | `node scripts/run-smoke.mjs` | 446/446 |
-| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1701/1701 |
+| 引擎 | `node scripts/run-smoke.mjs` | 472/472 |
+| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1706/1706 |
 | 中继协议 | `node scripts/net-smoke.mjs` | 37/37 |
 | 联机房主集成 | `node scripts/run-online-host-smoke.mjs` | 47/47 |
 | 浏览器实时交互 | `node scripts/headless-live-check.mjs` | 53/53 |
@@ -507,7 +507,7 @@ node node_modules/vite/bin/vite.js build
 - node scripts/run-smoke.mjs
 - node scripts/run-ui-smoke.mjs
 - node scripts/net-smoke.mjs
-确认当前状态（期望 446/1701/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
+确认当前状态（期望 472/1706/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
 关键约束：
 - 初始内置 10 名经典武将（cls_ 前缀）+ 基础角色；用户仍可自定义。
 - 墨玉鎏金视觉 + 宣纸牌面；手牌在底部，角色卡在旁边；手牌可拖动/整理。
