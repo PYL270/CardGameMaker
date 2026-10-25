@@ -15,6 +15,7 @@ import LayoutSettings from './LayoutSettings';
 import GameSettingsPanel from './GameSettingsPanel';
 import CommandPalette from './CommandPalette';
 import TacticalPulse from './TacticalPulse';
+import HighlightReel, { DirectorShot, highlightFromEffect, HIGHLIGHT_LIMIT } from './HighlightReel';
 import { confirmDialog } from '../../utils/dialogService';
 import {
   TEAM_MODE_OPTIONS,
@@ -177,6 +178,12 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   const [fxQueue, setFxQueue] = useState([]);          // 演出特效队列（处决/判定/回复/雷击）
   const [tableCard, setTableCard] = useState(null);    // 出牌桌面展示
   const [discardQueue, setDiscardQueue] = useState([]); // 弃牌飞散队列
+  const [highlights, setHighlights] = useState([]);     // 牌桌导演·高光战报
+  const [directorShot, setDirectorShot] = useState(null); // 导演镜头（1.6s 自动淡出）
+  const [showHighlightReel, setShowHighlightReel] = useState(false);
+  const dyingWatchRef = useRef(null);
+  const highlightSeqRef = useRef(0);
+  const recordedEffectsRef = useRef(new Set());
 
   // 点击状态/技能/牌面类型印：在点击点附近弹出小说明面板
   const openInfo = (info, e) => {
@@ -194,12 +201,55 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   const logRef = useRef(null);
   const selfDrag = usePanelDrag('selfzone');
 
+  const prefersReducedMotion = () => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false;
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {
+      return false;
+    }
+  };
+
+  /** 写入高光战报；仅在显示飘字且未开启 reduced-motion 时触发导演镜头 */
+  const recordHighlight = (entry, extra = {}) => {
+    if (!entry) return null;
+    const id = `hl_${Date.now()}_${++highlightSeqRef.current}`;
+    const item = {
+      id,
+      round: Number(entry.round) || Number(gameState?.round) || 0,
+      type: entry.type || 'turn',
+      text: entry.text || '',
+      tone: entry.tone || 'calm',
+      amount: entry.amount ?? null,
+      time: Date.now(),
+    };
+    setHighlights(prev => [...prev, item].slice(-HIGHLIGHT_LIMIT));
+    if (entry.major && layout.showFloats && !prefersReducedMotion()) {
+      setDirectorShot({
+        id,
+        round: item.round,
+        title: extra.title || '高光时刻',
+        subtitle: item.text,
+        members: extra.members || [],
+        tone: item.tone,
+      });
+    }
+    return item;
+  };
+
   // 自动滚动日志
   useEffect(() => {
     if (showLog && logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
   }, [logs, showLog]);
+
+  // 导演镜头 1.6s 自动淡出（不阻塞点击）
+  useEffect(() => {
+    if (!directorShot) return undefined;
+    const timer = setTimeout(() => setDirectorShot(null), 1600);
+    return () => clearTimeout(timer);
+  }, [directorShot?.id]);
 
   // 新的操作提示出现时清空选择
   useEffect(() => {
@@ -307,6 +357,14 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   // 打击感 / 运动感：出牌飞行、杀击闪光、摸牌提示、伤害反馈
   useEffect(() => {
     if (!effect) return;
+    if (effect.id && recordedEffectsRef.current.has(effect.id)) return;
+    if (effect.id) {
+      recordedEffectsRef.current.add(effect.id);
+      if (recordedEffectsRef.current.size > 80) {
+        const oldest = recordedEffectsRef.current.values().next().value;
+        recordedEffectsRef.current.delete(oldest);
+      }
+    }
 
     const mySeat = online.active ? online.seat : 0;
     const myPlayer = game?.players?.find(p => p.seatNum === mySeat)
@@ -314,6 +372,46 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     const selfId = myPlayer?.id;
     const effectPlayerId = effect.player?.id || effect.playerId || null;
     const effectIsSelf = effectPlayerId === selfId;
+
+    // 高光捕获：伤害≥2 / 击杀 / 濒死被救 / 雷击判定 / 羁绊合击
+    const statePlayers = gameState?.players || game?.players || [];
+    const findPlayer = (id) => (id ? statePlayers.find(p => p?.id === id) || null : null);
+    const dyingId = effect.player?.id || effect.playerId || effect.target?.id || effect.targetId || null;
+    const dyingWatch = dyingWatchRef.current;
+    const wasDying = effect.type === 'heal'
+      && !!dyingWatch
+      && dyingWatch.id === dyingId
+      && Date.now() - dyingWatch.at < 30000;
+    if (effect.type === 'dying' && dyingId) {
+      dyingWatchRef.current = { id: dyingId, at: Date.now() };
+    }
+    if (wasDying) dyingWatchRef.current = null;
+    const richEffect = {
+      ...effect,
+      player: effect.player?.name ? effect.player : (findPlayer(dyingId) || effect.player),
+      target: effect.target?.name ? effect.target : (findPlayer(effect.targetId) || effect.target),
+      source: effect.source?.name ? effect.source : (findPlayer(effect.sourceId) || effect.source),
+    };
+    const highlight = highlightFromEffect(richEffect, {
+      round: gameState?.round || 0,
+      wasDying,
+    });
+    if (highlight) {
+      const bondMembers = effect.type === 'bondCombo' && Array.isArray(effect.members)
+        ? effect.members.map(m => (typeof m === 'string' ? m : m?.name)).filter(Boolean)
+        : [];
+      const directorTitles = {
+        kill: '阵斩',
+        bond: effect.bondName || '羁绊合击',
+        judge: '雷击判定',
+        heal: '濒死回生',
+        damage: '重创',
+      };
+      recordHighlight(highlight, {
+        title: directorTitles[highlight.type] || '高光时刻',
+        members: bondMembers,
+      });
+    }
 
     // 弃牌事件（引擎 task-32 后可能发 type:'discard'）：防御性读取，未知/空 cards 忽略
     const discardFx = mapDiscardEffect(effect);
@@ -475,6 +573,10 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     setShake(null);
     setFlash(false);
     setDamageInfo(null);
+    setHighlights([]);
+    setDirectorShot(null);
+    setShowHighlightReel(false);
+    dyingWatchRef.current = null;
     try {
       await restartGame();
     } catch (e) {
@@ -915,6 +1017,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         <div className="low-hp-ambience" aria-hidden="true" />
       )}
       {flash && <div className="damage-flash" />}
+      {layout.showFloats && <DirectorShot shot={directorShot} />}
       {layout.showBanner && banner && (
         <div className="turn-banner" key={banner.id}>
           <span className="turn-banner-name">{banner.name}</span>
@@ -1316,10 +1419,19 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           canRestart={canRestart}
           menuLabel={online.active ? '离开房间' : '返回主菜单'}
           onRestart={handleRestart}
+          hasHighlights={highlights.length > 0}
+          onOpenHighlights={() => setShowHighlightReel(true)}
           onMenu={() => {
             if (online.active) leaveOnline();
             navigate('menu');
           }}
+        />
+      )}
+
+      {showHighlightReel && (
+        <HighlightReel
+          highlights={highlights}
+          onClose={() => setShowHighlightReel(false)}
         />
       )}
 

@@ -8,6 +8,7 @@ import Icon from '../ui/Icon';
 export default function ResultOverlay({
   won, round, onRestart, onMenu, restarting = false, canRestart = true, menuLabel = '返回主菜单',
   subtitle = null, title = null, icon = null,
+  hasHighlights = false, onOpenHighlights = null,
 }) {
   return (
     <div className="overlay">
@@ -27,6 +28,11 @@ export default function ResultOverlay({
             </button>
           )}
           <button className="btn" onClick={onMenu}>{menuLabel}</button>
+          {hasHighlights && onOpenHighlights && (
+            <button className="btn result-highlight-entry" onClick={onOpenHighlights}>
+              查看高光战报
+            </button>
+          )}
         </div>
       </div>
 

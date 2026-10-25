@@ -105,6 +105,13 @@ import {
   simulateCard,
   describeTargetLock,
 } from '../src/ai/tacticalAdvisor.js';
+import HighlightReel, {
+  DirectorShot,
+  HIGHLIGHT_LIMIT,
+  highlightFromEffect,
+  normalizeHighlight,
+  formatHighlightsForCopy,
+} from '../src/components/GameBoard/HighlightReel.jsx';
 import { buildEquipSlots, equipChoiceEntries, normalizeEquipLimit } from '../src/components/GameBoard/equipSlots.js';
 import { computeCardTilt, shouldEnableCardTilt, CARD_TILT_MAX_DEG } from '../src/components/GameBoard/cardTilt.js';
 import ArtStudio from '../src/components/Editor/ArtStudio.jsx';
@@ -4662,6 +4669,105 @@ async function main() {
   assert(advisorSrc.includes('evaluatePosition') && advisorSrc.includes('predictIntent')
     && advisorSrc.includes('recommendAction') && advisorSrc.includes('simulateCard')
     && advisorSrc.includes('aiAutoPlay'), '军师纯函数模块导出完整');
+
+  console.log('\n[56] 牌桌导演：高光捕获 / 战报弹层 / 导演镜头');
+  const hlDamage = highlightFromEffect({
+    type: 'damage', source: { name: '关羽' }, target: { name: '曹操' }, num: 3,
+  }, { round: 4, now: 1700000000000 });
+  assert(hlDamage && hlDamage.type === 'damage' && hlDamage.amount === 3 && hlDamage.major
+    && hlDamage.text.includes('关羽') && hlDamage.text.includes('曹操'), '高光捕获：伤害≥2');
+  assert(highlightFromEffect({ type: 'damage', num: 1 }, { round: 1 }) === null,
+    '高光捕获：1 点伤害不收录');
+  const hlKill = highlightFromEffect({
+    type: 'death', player: { name: '张飞' }, source: { name: '吕布' },
+  }, { round: 5 });
+  assert(hlKill && hlKill.type === 'kill' && hlKill.major && hlKill.text.includes('张飞'), '高光捕获：击杀');
+  const hlJudge = highlightFromEffect({
+    type: 'judge', player: { name: '司马懿' }, delayCard: { name: '闪电' },
+    card: { name: '黑桃', suitSymbol: '♠', numberDisplay: '7' }, success: true,
+  }, { round: 2 });
+  assert(hlJudge && hlJudge.type === 'judge' && hlJudge.text.includes('闪电')
+    && hlJudge.text.includes('雷击命中'), '高光捕获：雷击判定');
+  assert(highlightFromEffect({ type: 'judge', delayCard: { name: '乐不思蜀' }, success: false }) === null,
+    '高光捕获：普通判定不抢戏');
+  assert(highlightFromEffect({ type: 'heal', num: 1, player: { name: '刘备' } }) === null,
+    '高光捕获：普通回复 1 不收录');
+  const hlRescue = highlightFromEffect({
+    type: 'heal', num: 1, player: { name: '刘备' }, source: { name: '关羽' },
+  }, { wasDying: true, round: 6 });
+  assert(hlRescue && hlRescue.type === 'heal' && hlRescue.major && hlRescue.text.includes('濒死'),
+    '高光捕获：濒死被救');
+  const hlBond = highlightFromEffect({
+    type: 'bondCombo', bondName: '桃园结义', members: [{ name: '刘备' }, { name: '关羽' }],
+    source: { name: '关羽' }, target: { name: '曹操' }, num: 1,
+  }, { round: 7 });
+  assert(hlBond && hlBond.type === 'bond' && hlBond.major
+    && hlBond.text.includes('桃园结义') && hlBond.text.includes('刘备')
+    && hlBond.text.includes('曹操'), '高光捕获：羁绊合击');
+  assert(HIGHLIGHT_LIMIT === 40, '高光上限 40 条');
+  const normalizedHl = normalizeHighlight({ id: 'h1', round: 3, type: 'kill', text: '斩', time: 1700000000000 });
+  assert(normalizedHl.type === 'kill' && normalizedHl.tone === 'kill' && normalizedHl.round === 3,
+    '高光条目归一化');
+  const copyText = formatHighlightsForCopy([
+    { round: 3, type: 'kill', text: '关羽击败曹操', time: 1700000000000 },
+    { round: 4, type: 'bond', text: '桃园合击', time: 1700000060000 },
+  ]);
+  assert(copyText.includes('高光战报') && copyText.includes('第3回合')
+    && copyText.includes('关羽击败曹操') && copyText.includes('羁绊'), '复制战报文本含回合/类型/描述');
+
+  const emptyReelHtml = renderToString(React.createElement(HighlightReel, {
+    highlights: [], onClose: noop,
+  }));
+  assert(emptyReelHtml.includes('highlight-reel') && emptyReelHtml.includes('highlight-empty')
+    && emptyReelHtml.includes('本局无高光') && emptyReelHtml.includes('复制战报'), '战报空状态 SSR');
+  const reelHtml = renderToString(React.createElement(HighlightReel, {
+    highlights: [
+      { id: 'a', round: 2, type: 'damage', text: '关羽重创曹操', tone: 'damage', time: 1700000000000, amount: 3 },
+      { id: 'b', round: 3, type: 'bond', text: '桃园结义合击', tone: 'bond', time: 1700000060000, amount: 1 },
+    ],
+    onClose: noop,
+  }));
+  for (const text of ['高光战报', 'highlight-timeline', 'highlight-round', '伤害', '羁绊',
+    '关羽重创曹操', '桃园结义合击', '复制战报', '返回牌桌', '关闭']) {
+    assert(reelHtml.includes(text), `战报弹层含「${text}」`);
+  }
+  const shotHtml = renderToString(React.createElement(DirectorShot, {
+    shot: { id: 's1', round: 5, title: '阵斩', subtitle: '关羽击败曹操', members: ['关羽', '刘备'], tone: 'kill' },
+  }));
+  assert(shotHtml.includes('director-shot') && shotHtml.includes('director-bar-top')
+    && shotHtml.includes('director-bar-bottom') && shotHtml.includes('阵斩')
+    && shotHtml.includes('关羽') && shotHtml.includes('第 5 回合'), '导演镜头 SSR：黑边/标题/参战者');
+  assert(renderToString(React.createElement(DirectorShot, { shot: null })) === '',
+    '导演镜头空状态不渲染');
+  const resultHlHtml = renderToString(React.createElement(ResultOverlay, {
+    won: true, round: 8, onRestart: noop, onMenu: noop,
+    hasHighlights: true, onOpenHighlights: noop,
+  }));
+  assert(resultHlHtml.includes('查看高光战报'), '结算页高光入口');
+  const resultNoHlHtml = renderToString(React.createElement(ResultOverlay, {
+    won: true, round: 8, onRestart: noop, onMenu: noop,
+  }));
+  assert(!resultNoHlHtml.includes('查看高光战报'), '无高光时不显示结算入口');
+  const reelSrc = readFileSync('src/components/GameBoard/HighlightReel.jsx', 'utf8');
+  assert(reelSrc.includes('navigator.clipboard') && reelSrc.includes('alertDialog')
+    && reelSrc.includes('Escape') && reelSrc.includes('本局还没有高光'), '战报复制/降级/Esc/空文案');
+  const boardHighlightsSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
+  assert(boardHighlightsSrc.includes('const [highlights, setHighlights]')
+    && boardHighlightsSrc.includes('const [directorShot, setDirectorShot]')
+    && boardHighlightsSrc.includes('const [showHighlightReel, setShowHighlightReel]')
+    && boardHighlightsSrc.includes('highlightFromEffect')
+    && boardHighlightsSrc.includes('slice(-HIGHLIGHT_LIMIT)')
+    && boardHighlightsSrc.includes('<DirectorShot') && boardHighlightsSrc.includes('<HighlightReel')
+    && boardHighlightsSrc.includes('layout.showFloats') && boardHighlightsSrc.includes('prefers-reduced-motion'),
+  'GameBoard 捕获高光/导演镜头/战报弹层');
+  const appCssHighlight = readFileSync('src/App.css', 'utf8');
+  assert(appCssHighlight.includes('.director-shot') && appCssHighlight.includes('.director-bar-top')
+    && appCssHighlight.includes('.highlight-reel-overlay') && appCssHighlight.includes('.highlight-timeline')
+    && appCssHighlight.includes('@keyframes directorShotFade')
+    && appCssHighlight.includes('@keyframes highlightReelIn')
+    && appCssHighlight.includes('pointer-events: none'), '高光战报 CSS：黑边/时间线/非阻塞');
+  assert(appCssHighlight.includes('prefers-reduced-motion')
+    && appCssHighlight.includes('.director-shot,'), '高光战报 reduced-motion 降级');
 
   const boardCommandSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
   assert(boardCommandSrc.includes('showCommandPalette') && boardCommandSrc.includes('<CommandPalette')
