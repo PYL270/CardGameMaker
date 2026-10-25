@@ -100,14 +100,14 @@
 
 - ActionPanel 出牌阶段有「推荐出牌」按钮：调用 `computeRecommended()`，本地/房主直接用 `game.aiAutoPlay()` 结果出牌或结束出牌；联机客户端按提示数据选第一张可用牌与目标。
 - 顶部「自动」按钮：开启后 700ms 自动处理 pendingAction：
-  - play → 推荐动作
+  - play → 推荐动作；支持普通牌、**主动技（useSkill）与武器技（useWeapon）**，且只提交 `playableIds` 中的牌
   - discard → 按价值弃牌
   - respond → 选第一张可用响应牌
-  - selectCards → 选前 min 张
-  - chooseTarget → 第一个目标
+  - selectCards → 按低价值排序选 min 张
+  - chooseTarget → 交给 AI 目标策略（无本地 Game 时取第一个候选）
   - confirm → 同意
 - 状态持久化：`localStorage["cgm_auto_play"]`。
-- 自动模式不会主动使用主动技能（避免误操作）。
+- 防死循环：`Turn.phasePlay` 对连续 3 次无效出牌直接结束阶段，避免自动模式反复提交本回合已不能使用的【杀】。
 
 ### 2.7 种子牌堆
 
@@ -402,8 +402,8 @@ test.bat          # 或 npm run test:all
 
 | 套件 | 命令 | 当前结果 |
 |------|------|----------|
-| 引擎 | `node scripts/run-smoke.mjs` | 472/472 |
-| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1706/1706 |
+| 引擎 | `node scripts/run-smoke.mjs` | 474/474 |
+| UI 渲染 | `node scripts/run-ui-smoke.mjs` | 1708/1708 |
 | 中继协议 | `node scripts/net-smoke.mjs` | 37/37 |
 | 联机房主集成 | `node scripts/run-online-host-smoke.mjs` | 47/47 |
 | 浏览器实时交互 | `node scripts/headless-live-check.mjs` | 53/53 |
@@ -507,7 +507,7 @@ node node_modules/vite/bin/vite.js build
 - node scripts/run-smoke.mjs
 - node scripts/run-ui-smoke.mjs
 - node scripts/net-smoke.mjs
-确认当前状态（期望 472/1706/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
+确认当前状态（期望 474/1708/37；实时测试 53/15、手机 16、BGM 15，另需 Edge CDP 9333）。
 关键约束：
 - 初始内置 10 名经典武将（cls_ 前缀）+ 基础角色；用户仍可自定义。
 - 墨玉鎏金视觉 + 宣纸牌面；手牌在底部，角色卡在旁边；手牌可拖动/整理。

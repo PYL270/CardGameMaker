@@ -408,8 +408,10 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       if (pa.type === 'play') {
         const rec = await computeRecommended(pa);
         if (useGameStore.getState().pendingAction !== pa) return;
-        const result = isRecommendationValid(pa, rec) ? rec : fallbackRecommendation(pa);
+        const result = isAutoActionUsable(pa, rec) ? rec : fallbackRecommendation(pa);
         if (!result) resolveAction({ type: 'endPlay' });
+        else if (result.type === 'useSkill') resolveAction({ type: 'useSkill', skillId: result.skillId });
+        else if (result.type === 'useWeapon') resolveAction({ type: 'useWeapon', weapon: result.weapon });
         else resolveAction({ card: result.card, targets: result.targets || [] });
       } else if (pa.type === 'discard') {
         const hand = pa.cards || pa.player?.handCards || [];
@@ -422,9 +424,19 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           : (typeof pa.filter === 'function' ? cards.find(pa.filter) : cards[0]);
         resolveAction(card || null);
       } else if (pa.type === 'selectCards') {
-        resolveAction((pa.cards || []).slice(0, Math.max(pa.min || 1, 1)));
+        const pool = pa.cards || [];
+        const need = Math.max(pa.min || 1, 1);
+        const sorted = [...pool].sort((a, b) =>
+          (game?.aiDisposableScore?.(a) ?? 0) - (game?.aiDisposableScore?.(b) ?? 0));
+        resolveAction(sorted.slice(0, need));
       } else if (pa.type === 'chooseTarget') {
-        resolveAction((pa.candidates || [])[0] || null);
+        let pick = null;
+        try {
+          pick = game?.aiPickSkillTarget?.(pa.player, pa.candidates || [], pa.hint || '');
+        } catch {
+          // 联机客户端没有本地 Game 时回退到首个候选
+        }
+        resolveAction(pick || (pa.candidates || [])[0] || null);
       } else if (pa.type === 'equipReplace') {
         resolveAction(firstEquipSlot(pa.cards));
       } else if (pa.type === 'confirm') {
@@ -644,6 +656,9 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     if (!pa || pa.type !== 'play' || !rec || rec.type === 'endPlay') return false;
     if (!recommendCardInHand(pa, rec.card)) return false;
     if (['闪', '无懈可击'].includes(rec.card.name)) return false;
+    if (Array.isArray(pa.playableIds) && rec.card?.id && !pa.playableIds.includes(rec.card.id)) {
+      return false;
+    }
     if (recommendNeedsTarget(rec.card.name)) {
       const valid = recommendValidTargets(pa, rec.card.name);
       if (!valid.length) return false;
@@ -655,9 +670,27 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     return true;
   };
 
+  /**
+   * 自动模式可执行的动作：卡牌、主动技、武器技。
+   * aiAutoPlay 现在会返回 useSkill/useWeapon，不能再用只认卡牌的
+   * isRecommendationValid 过滤，否则自动模式会把这些建议丢掉。
+   */
+  const isAutoActionUsable = (pa, rec) => {
+    if (!pa || pa.type !== 'play' || !rec) return false;
+    if (rec.type === 'useSkill') {
+      return (pa.activeSkills || []).some(s => s.id === rec.skillId);
+    }
+    if (rec.type === 'useWeapon') {
+      return (pa.weaponActions || []).some(w => w.id === rec.weapon);
+    }
+    return isRecommendationValid(pa, rec);
+  };
+
   const fallbackRecommendation = (pa) => {
     const hand = recommendHandOf(pa);
-    const find = (name) => hand.find(c => c.name === name);
+    const playableIds = Array.isArray(pa.playableIds) ? pa.playableIds : null;
+    const canUse = (card) => !playableIds || playableIds.includes(card.id);
+    const find = (name) => hand.find(c => c.name === name && canUse(c));
     const player = pa.player || {};
     const make = (card, targets = []) => ({ card, targets });
 
@@ -683,9 +716,9 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       const targets = recommendValidTargets(pa, name);
       if (targets.length) return make(card, [targets[0]]);
     }
-    const equip = hand.find(c => c.type === 'equip');
+    const equip = hand.find(c => c.type === 'equip' && canUse(c));
     if (equip) return make(equip);
-    const aoe = hand.find(c => ['南蛮入侵', '万箭齐发', '桃园结义'].includes(c.name));
+    const aoe = hand.find(c => ['南蛮入侵', '万箭齐发', '桃园结义'].includes(c.name) && canUse(c));
     if (aoe) return make(aoe);
     return null;
   };

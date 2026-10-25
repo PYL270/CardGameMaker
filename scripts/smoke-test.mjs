@@ -1339,6 +1339,23 @@ async function main() {
     '支持按座位号投降（联机房主结算）');
   assert(surrenderSeatGame.surrender(99) === false, '非法座位投降被拒绝');
 
+  console.log('\n[32c] 出牌阶段无效动作防死循环');
+  const invalidGame = new Game();
+  await invalidGame.init([{ name: '人类', isAI: false }, { name: 'AI', isAI: true }]);
+  const invalidPlayer = invalidGame.players[0];
+  invalidPlayer.usedSha = 1; // 本回合已出过杀，再提交杀属于无效动作
+  const invalidSha = new Card({ name: '杀', suit: 'spade', number: 7, type: 'basic' });
+  invalidPlayer.handCards = [invalidSha];
+  let invalidCalls = 0;
+  invalidGame.ui.askForPlay = async () => {
+    invalidCalls++;
+    return { card: invalidSha, targets: [invalidGame.players[1]] };
+  };
+  await invalidGame.turn.phasePlay(invalidPlayer);
+  assert(invalidCalls === 3, '连续 3 次无效出牌后自动结束出牌阶段', `calls=${invalidCalls}`);
+  assert(invalidGame.logs.some(l => l.message.includes('连续提交无效出牌')),
+    '无效动作死循环有明确日志');
+
   console.log('\n[33] 组队 AI 目标过滤 / 求桃 / AOE');
   const tmAi = new Game();
   tmAi.config.teamMode = '2v2';

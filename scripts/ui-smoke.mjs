@@ -1054,6 +1054,14 @@ async function main() {
   assert(foeSurrenderHtml.includes('对局结束') && foeSurrenderHtml.includes('对手甲投降')
     && !foeSurrenderHtml.includes('你已投降，本局结束'),
   '对手投降时自己判胜并显示对手投降文案');
+  const autoBoardSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
+  assert(autoBoardSrc.includes('const isAutoActionUsable')
+    && autoBoardSrc.includes("result.type === 'useSkill'")
+    && autoBoardSrc.includes("result.type === 'useWeapon'"),
+  '自动模式支持主动技与武器技建议');
+  assert(autoBoardSrc.includes('const canUse = (card) => !playableIds')
+    && autoBoardSrc.includes('pa.playableIds'),
+  '自动模式只提交当前可出的牌，避免无效杀死循环');
   assert(classicHtml.includes('--hand-scale:1') && classicHtml.includes('--opponent-scale:1'),
     '经典式 CSS 变量为 1（原布局回归）');
   assert(classicHtml.includes('你的手牌') && classicHtml.includes('手牌 2'),

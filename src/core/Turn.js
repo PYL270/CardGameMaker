@@ -231,6 +231,7 @@ export default class Turn {
     }
 
     // 循环等待出牌，直到玩家选择结束出牌或无法出牌
+    let invalidActions = 0;
     while (player.isAlive && !this.isPaused) {
       const action = await this.game.askForPlay(player);
       if (!action || action.type === 'endPlay') break;
@@ -246,9 +247,14 @@ export default class Turn {
       // 出牌阶段规则校验：闪/无懈不能主动使用、桃需受伤、酒每回合一次、目标合法
       if (!this.game.canPlayCard(player, action.card)) {
         this.game.addLog(`${player.name} 现在不能主动使用【${action.card?.name || '该牌'}】`);
-        if (player.isAI) break;
+        // AI 或自动模式给出无效动作时直接结束，避免 UI 反复提交同一张牌造成死循环
+        if (player.isAI || ++invalidActions >= 3) {
+          if (invalidActions >= 3) this.game.addLog(`${player.name} 连续提交无效出牌，结束出牌阶段`);
+          break;
+        }
         continue;
       }
+      invalidActions = 0;
       // 执行出牌动作
       await this.game.executeCardAction(player, action);
     }
