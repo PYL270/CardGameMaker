@@ -15,6 +15,7 @@ import LayoutSettings from './LayoutSettings';
 import GameSettingsPanel from './GameSettingsPanel';
 import CommandPalette from './CommandPalette';
 import TacticalPulse from './TacticalPulse';
+import { confirmDialog } from '../../utils/dialogService';
 import {
   TEAM_MODE_OPTIONS,
   normalizeTeamMode,
@@ -483,8 +484,17 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     }
   };
 
-  const handleExit = () => {
-    if (gameState?.status === 'running' && !window.confirm('对局尚未结束，确定退出吗？')) return;
+  const handleExit = async () => {
+    if (gameState?.status === 'running') {
+      const confirmed = await confirmDialog({
+        title: '退出对局',
+        message: '对局尚未结束，确定退出吗？',
+        confirmText: '退出',
+        danger: true,
+        kicker: 'LEAVE BATTLE',
+      });
+      if (!confirmed) return;
+    }
     if (online.active) leaveOnline();
     navigate('menu');
   };

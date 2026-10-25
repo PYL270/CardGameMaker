@@ -17,6 +17,7 @@ import {
   shiftFx,
 } from './components/GameBoard/effectFx';
 import SceneBackground from './components/GameBoard/SceneBackground';
+import GameDialog from './components/ui/GameDialog';
 import { audio } from './audio/audioManager';
 import { applySavedFont } from './appearance/fontManager';
 import { LAYOUT_STORAGE_KEY, applyPreset, saveLayout } from './components/GameBoard/layoutConfig';
@@ -229,6 +230,7 @@ export default function App() {
         {page}
       </div>
       <FxLayer queue={previewFxQueue} onShift={() => setPreviewFxQueue(q => shiftFx(q))} />
+      <GameDialog />
       {quickNotice && (
         <div className="quick-notice" role="status">
           <span className="quick-notice-dot" aria-hidden="true" />

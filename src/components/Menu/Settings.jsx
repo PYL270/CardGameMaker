@@ -22,6 +22,7 @@ import {
   saveUiPrefs,
   applyUiPrefs,
 } from '../../utils/uiPrefs';
+import { alertDialog } from '../../utils/dialogService';
 
 export default function Settings({ navigate }) {
   const [layout, setLayout] = useState(() => loadLayout());
@@ -278,12 +279,19 @@ export default function Settings({ navigate }) {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
-                reader.onload = (ev) => {
+                reader.onload = async (ev) => {
                   try {
                     const data = JSON.parse(ev.target.result);
                     useGameStore.getState().loadFromJSON(data);
-                    alert('导入成功！');
-                  } catch { alert('导入失败：格式错误'); }
+                    await alertDialog({ title: '导入完成', message: '导入成功！', kicker: 'DATA IMPORT' });
+                  } catch {
+                    await alertDialog({
+                      title: '导入失败',
+                      message: '导入失败：格式错误',
+                      danger: true,
+                      kicker: 'DATA IMPORT',
+                    });
+                  }
                 };
                 reader.readAsText(file);
               };

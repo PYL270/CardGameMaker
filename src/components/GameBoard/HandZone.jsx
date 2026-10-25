@@ -403,7 +403,7 @@ export default function HandZone({
   const sortTitle = `一键整理：当前按${handSortLabel(sortMode)}排序 · 下次点击按${handSortLabel(nextMode)} · 清除手动位置`;
 
   return (
-    <div className={`hand-zone ${shining ? 'hand-shining' : ''}`}>
+    <div className={`hand-zone ${shining ? 'hand-shining' : ''} ${selectedCards.length > 0 ? 'has-selection' : ''}`}>
       {shining && <div className="hand-shine" key={`shine-${flipTick}`} aria-hidden="true" />}
       <div className="hand-toolbar">
         <span className="hand-title">你的手牌</span>

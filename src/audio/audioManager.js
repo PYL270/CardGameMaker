@@ -6,6 +6,7 @@
  * - 首次用户交互后解锁自动播放
  */
 import { playImpact, playTap } from '../utils/effects';
+import { alertDialog } from '../utils/dialogService';
 import { SFX_CATEGORIES, SFX_SLOTS, BUILTIN_SFX, getSfxTuning } from './sfxCatalog';
 
 export { SFX_CATEGORIES, SFX_SLOTS, BUILTIN_SFX };
@@ -283,12 +284,12 @@ class AudioManager {
   async importFile(slotKey, file) {
     if (!file || typeof window === 'undefined') return false;
     if (file.size > 40 * 1024 * 1024) {
-      window.alert('音频文件过大（上限 40MB）');
+      await alertDialog({ title: '音频文件过大', message: '音频文件过大（上限 40MB）', danger: true });
       return false;
     }
     const db = await this._openDb();
     if (!db) {
-      window.alert('当前浏览器不支持本地音频存储');
+      await alertDialog({ title: '无法保存音频', message: '当前浏览器不支持本地音频存储', danger: true });
       return false;
     }
     const old = this.files.get(slotKey);

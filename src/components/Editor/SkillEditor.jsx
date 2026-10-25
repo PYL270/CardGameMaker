@@ -5,6 +5,7 @@ import SkillComposer from './SkillComposer';
 import SkillText, { SkillKeywordLegend } from '../ui/SkillText.jsx';
 import Select from '../ui/Select';
 import { skillTypeMeta, normalizeEditorSkillType } from '../ui/skillType';
+import { alertDialog } from '../../utils/dialogService';
 
 const SKILL_TYPE_NAMES = {
   active: '主动技', trigger: '触发技', locked: '锁定技',
@@ -70,8 +71,11 @@ export default function SkillEditor({ navigate, context }) {
     setEditing(skill.id);
   };
 
-  const handleSave = () => {
-    if (!form.name.trim()) { alert('请输入技能名'); return; }
+  const handleSave = async () => {
+    if (!form.name.trim()) {
+      await alertDialog({ title: '技能未命名', message: '请输入技能名' });
+      return;
+    }
     const config = {
       ...form,
       id: form.id || `skill_${form.name.replace(/\s/g, '_')}_${Date.now()}`,

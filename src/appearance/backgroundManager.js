@@ -4,6 +4,8 @@
  * - 支持玩家上传自定义背景图（IndexedDB 本地保存，不上传服务器）
  * - 可调节暗化、模糊、动效开关
  */
+import { alertDialog } from '../utils/dialogService';
+
 const CONFIG_KEY = 'cgm_bg_config';
 const DB_NAME = 'cgm_visual_db';
 const DB_VERSION = 1;
@@ -192,16 +194,16 @@ class BackgroundManager {
   async importImage(file) {
     if (!file || typeof window === 'undefined') return false;
     if (!/^image\//.test(file.type)) {
-      window.alert('请选择图片文件（jpg / png / webp）');
+      await alertDialog({ title: '格式不支持', message: '请选择图片文件（jpg / png / webp）', danger: true });
       return false;
     }
     if (file.size > 20 * 1024 * 1024) {
-      window.alert('图片过大（上限 20MB）');
+      await alertDialog({ title: '图片过大', message: '图片过大（上限 20MB）', danger: true });
       return false;
     }
     const db = await this._openDb();
     if (!db) {
-      window.alert('当前浏览器不支持本地图片存储');
+      await alertDialog({ title: '无法保存背景', message: '当前浏览器不支持本地图片存储', danger: true });
       return false;
     }
     if (this.imageUrl) URL.revokeObjectURL(this.imageUrl);

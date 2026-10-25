@@ -22,6 +22,7 @@ import {
 } from './characterWorkshopModel';
 import { skillTypeInfo } from '../ui/skillType';
 import SkillText from '../ui/SkillText.jsx';
+import { confirmDialog } from '../../utils/dialogService';
 
 function WorkshopSection({ id, no, title, sub, open, onToggle, children }) {
   return (
@@ -183,9 +184,16 @@ export default function CharacterEditor({ navigate, context, initialForm = null 
     setOpen(prev => ({ ...prev, list: true }));
   };
 
-  const handleDelete = (char) => {
+  const handleDelete = async (char) => {
     if (!char) return;
-    if (typeof window !== 'undefined' && !window.confirm(`确定删除武将「${char.name}」？`)) return;
+    const confirmed = await confirmDialog({
+      title: '删除武将',
+      message: `确定删除武将「${char.name}」？`,
+      confirmText: '删除',
+      danger: true,
+      kicker: 'DELETE CHARACTER',
+    });
+    if (!confirmed) return;
     removeCharacter(char.id);
     if (editing === char.id) setEditing(null);
     showToast(`已删除「${char.name}」`, 'ok');
