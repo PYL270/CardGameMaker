@@ -8,6 +8,7 @@ import Icon from '../ui/Icon';
 import Portrait from '../ui/Portrait';
 import { skillTypeInfo } from '../ui/skillType';
 import { buildEquipSlots, equipTypeLabel } from './equipSlots';
+import { bondsByIds } from '../../data/bonds';
 
 /**
  * SelfCharacterCard - 自己的武将角色卡（三国杀式：放在手牌旁边）
@@ -27,6 +28,7 @@ export default function SelfCharacterCard({
   const statusChips = statusChipList(player);
   const teamModeOn = isTeamMode(teamMode);
   const rangeHint = attackRangeHint(player);
+  const bondDefs = bondsByIds(player.bondIds);
 
   const emitInfo = (info, e) => {
     if (!onInfo) return;
@@ -88,6 +90,24 @@ export default function SelfCharacterCard({
           )}
         </div>
       </div>
+
+      {bondDefs.length > 0 && (
+        <div className="bond-tags self-bond-tags">
+          {bondDefs.map(bond => (
+            <span
+              key={bond.id}
+              className={`bond-tag ${onInfo ? 'clickable' : ''}`}
+              data-info-trigger="1"
+              title={`${bond.name}：${bond.desc}`}
+              onClick={onInfo
+                ? (e) => emitInfo({ title: `羁绊 · ${bond.name}`, desc: `${bond.desc} 组合技：${bond.comboDesc}` }, e)
+                : undefined}
+            >
+              {bond.name}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="self-tags self-equip-section">
         <span className="self-tags-label">{equipment.title}</span>

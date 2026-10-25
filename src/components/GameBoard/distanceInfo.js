@@ -78,11 +78,19 @@ export function seatDistance(me, target, players) {
 
 /** 攻击范围：武器 range 优先；联机序列化缺 range 时按武器名兜底；无武器=1 */
 export function attackRange(player) {
+  // 本地 Player 实例：直接复用引擎方法（含羁绊/技能等动态加成）
+  if (player && typeof player.getAttackRange === 'function') {
+    try {
+      const engineRange = Number(player.getAttackRange());
+      if (Number.isFinite(engineRange) && engineRange > 0) return engineRange;
+    } catch { /* 公开快照回退 */ }
+  }
+  const bondRange = Math.max(0, Number(player?.bondAttackRange) || 0);
   const weapon = equipOf(player, 'weapon');
-  if (!weapon) return 1;
+  if (!weapon) return 1 + bondRange;
   const explicit = Number(weapon.range);
-  if (Number.isFinite(explicit) && explicit > 0) return explicit;
-  return WEAPON_RANGE_BY_NAME[weapon.name] || 1;
+  if (Number.isFinite(explicit) && explicit > 0) return explicit + bondRange;
+  return (WEAPON_RANGE_BY_NAME[weapon.name] || 1) + bondRange;
 }
 
 /** 自己武器名（用于攻击范围 title） */

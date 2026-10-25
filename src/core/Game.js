@@ -14,6 +14,7 @@ import { EQUIP_SLOTS } from './Card';
 import { createBaseCharacter } from '../data/basicCharacter';
 import { CLASSIC_CHARACTERS, CLASSIC_SKILLS } from '../data/classicCharacters';
 import { buildStandardDeck } from '../data/basicCards';
+import { detectBonds } from '../data/bonds';
 
 export const GAME_STATUS = {
   IDLE: 'idle',
@@ -87,6 +88,9 @@ export default class Game extends EventEmitter {
 
     // 投降：记录座位号，供 UI 区分“主动投降”与正常胜负
     this.surrenderSeat = null;
+    // 武将羁绊：本局激活列表 + 每个羁绊的组合技使用记录（每局一次）
+    this.bonds = [];
+    this.bondUsage = new Map();
   }
 
   /**
@@ -827,6 +831,130 @@ export default class Game extends EventEmitter {
   }
 
   /**
+   * 应用本局武将羁绊：写入 bondIds / 被动数值，并广播 bondAwaken。
+   * 无羁绊时完全静默（不改变原有对局的事件流）。
+   */
+  applyBonds() {
+    this.bonds = detectBonds(this.players);
+    this.bondUsage = new Map();
+    if (!this.bonds.length) return [];
+
+    for (const bond of this.bonds) {
+      this.bondUsage.set(bond.id, false);
+      const members = this.players.filter(player =>
+        bond.memberIds.includes(player.character?.id));
+      for (const player of members) {
+        const owned = player.getStorage('bondIds');
+        const ids = Array.isArray(owned) ? owned : [];
+        player.setStorage('bondIds', [...new Set([...ids, bond.id])]);
+        if (bond.id === 'taoyuan') {
+          player.maxHp = Math.max(0, Number(player.maxHp) || 0) + 1;
+          player.hp = Math.min(player.maxHp, (Number(player.hp) || 0) + 1);
+          player.setStorage('bondMaxHp', 1);
+        } else if (bond.id === 'weimou') {
+          player.setStorage('bondHandLimit', Number(player.getStorage('bondHandLimit')) + 1 || 1);
+        } else if (bond.id === 'jiangdong') {
+          player.setStorage('bondAttackRange', Number(player.getStorage('bondAttackRange')) + 1 || 1);
+        } else if (bond.id === 'wolong') {
+          player.setStorage('bondTrickDraw', true);
+        }
+      }
+      const names = members.map(player => player.name).join('、');
+      this.addLog(`羁绊觉醒【${bond.name}】：${names}（${bond.passive}）`);
+    }
+
+    this.emitUiEffect({
+      type: 'bondAwaken',
+      bonds: this.bonds.map(bond => ({
+        id: bond.id,
+        name: bond.name,
+        members: bond.members,
+        desc: bond.desc,
+        passive: bond.passive,
+      })),
+      bondName: this.bonds[0]?.name || '',
+      members: this.bonds[0]?.members || [],
+    });
+    return this.bonds;
+  }
+
+  /**
+   * 组合技：成员使用【杀】命中敌人时，若至少一名羁绊队友存活，
+   * 消耗该羁绊本局唯一一次合击，额外 +1 伤害。
+   * @returns {number} 额外伤害（0 或 1）
+   */
+  tryBondCombo(player, target) {
+    if (!player || !target || !player.isAlive || !target.isAlive) return 0;
+    if (typeof this.isEnemy === 'function' && !this.isEnemy(player, target)) return 0;
+    const ids = player.getStorage('bondIds');
+    if (!Array.isArray(ids) || !ids.length) return 0;
+
+    for (const id of ids) {
+      if (this.bondUsage.get(id)) continue;
+      const bond = this.bonds.find(item => item.id === id);
+      if (!bond) continue;
+      const partnerAlive = this.players.some(other =>
+        other !== player
+        && other.isAlive
+        && bond.memberIds.includes(other.character?.id));
+      if (!partnerAlive) continue;
+
+      this.bondUsage.set(id, true);
+      const members = this.players
+        .filter(other => other.isAlive && bond.memberIds.includes(other.character?.id))
+        .map(other => this.effectPlayer(other));
+      this.emitUiEffect({
+        type: 'bondCombo',
+        bondId: bond.id,
+        bondName: bond.name,
+        comboName: bond.comboName,
+        members,
+        source: this.effectPlayer(player),
+        target: this.effectPlayer(target),
+        num: 1,
+      });
+      this.addLog(`【${bond.name}·${bond.comboName}】${members.map(m => m.name).join('、')} 合击 ${target.name}，伤害 +1`);
+      return 1;
+    }
+    return 0;
+  }
+
+  /**
+   * 卧龙凤雏：每回合首次使用锦囊摸 1 张。
+   * @returns {boolean} 是否触发摸牌
+   */
+  tryBondTrickDraw(player, card) {
+    if (!player || !card) return false;
+    if (card.type !== 'trick' && card.type !== 'delay_trick') return false;
+    if (player.getStorage('bondTrickDraw') !== true) return false;
+    if (player.getStorage('bondTrickUsed') === true) return false;
+    player.setStorage('bondTrickUsed', true);
+    player.drawCards(this.deck.draw(1));
+    this.emitUiEffect({
+      type: 'bondPassive',
+      bondId: 'wolong',
+      bondName: '卧龙凤雏',
+      name: '卧龙凤雏',
+      player: this.effectPlayer(player),
+      num: 1,
+    });
+    this.addLog(`【卧龙凤雏】${player.name} 本回合首次使用锦囊，摸 1 张牌`);
+    return true;
+  }
+
+  /** 公开羁绊状态（UI / 联机快照） */
+  getBondState() {
+    return (this.bonds || []).map(bond => ({
+      id: bond.id,
+      name: bond.name,
+      desc: bond.desc,
+      passive: bond.passive,
+      members: bond.members,
+      used: this.bondUsage.get(bond.id) === true,
+    }));
+  }
+
+  /**
    * 注册内置经典武将（只注册一次，避免重复 init 时覆盖用户内容）
    */
   initClassicContent() {
@@ -846,6 +974,8 @@ export default class Game extends EventEmitter {
   async init(playerConfigs = []) {
     this.initClassicContent();
     this.surrenderSeat = null;
+    this.bonds = [];
+    this.bondUsage = new Map();
     this.status = GAME_STATUS.PREPARING;
     // 组队/阵营：每次 init 都从 config 读取（重开时由调用方把 teamMode/friendlyFire 写回 config）
     this.teamMode = this.config.teamMode || 'ffa';
@@ -896,6 +1026,9 @@ export default class Game extends EventEmitter {
 
     // 更新距离
     this.distance.updatePlayers(this.players);
+
+    // 武将羁绊：在发牌前应用被动，保证起手体力/手牌上限/攻击范围正确
+    this.applyBonds();
 
     // 发初始手牌
     for (const player of this.players) {
@@ -1146,6 +1279,7 @@ export default class Game extends EventEmitter {
         if (!wuxied) {
           await this.executeTrickCard(player, card, targets);
           await this.fireTiming('useCard', { player, card });
+          this.tryBondTrickDraw(player, card);
         } else {
           this.addLog(`${card.name} 被无懈可击抵消`);
         }
@@ -1158,6 +1292,7 @@ export default class Game extends EventEmitter {
           this.addLog(`${card.name} 被无懈可击抵消`);
         } else {
           await this.executeDelayTrickCard(player, card, targets);
+          this.tryBondTrickDraw(player, card);
         }
         break;
       }
@@ -1319,7 +1454,7 @@ export default class Game extends EventEmitter {
         this.emitUiEffect({ type: 'weapon', player, target, name: '贯石斧' });
         this.addLog(`【贯石斧】${player.name} 弃两张牌强制造成伤害`);
         // 强制伤害仍属于这张【杀】造成的伤害：酒加伤生效，并且可以触发麒麟弓
-        const forcedDamage = jiuBonus ? 2 : 1;
+        const forcedDamage = (jiuBonus ? 2 : 1) + this.tryBondCombo(player, target);
         const forcedDealt = await this.dealDamage({ source: player, target, num: forcedDamage, card });
         this.addLog(forcedDealt > 0
           ? `${target.name} 受到${forcedDealt}点伤害(当前体力${target.hp})`
@@ -1342,6 +1477,8 @@ export default class Game extends EventEmitter {
         this.addLog(`【寒冰剑】${player.name} 弃置${target.name}两张牌，防止伤害`);
       } else {
         let damage = jiuBonus ? 2 : 1;
+        // 武将羁绊合击：命中且队友存活时，每局一次额外 +1
+        damage += this.tryBondCombo(player, target);
         // 的卢：成为【杀】目标且最终未打出【闪】时，防止1点伤害（每回合1次）
         if (this.hasEquip(target, '的卢') && this.tryEquipOnce(target, 'dilu')) {
           damage = Math.max(0, damage - 1);
@@ -1935,6 +2072,7 @@ export default class Game extends EventEmitter {
       currentPhase: this.turn.currentPhase,
       currentPlayer: this.turn.currentPlayer?.toJSON(),
       players: this.players.map(p => p.toJSON()),
+      bonds: this.getBondState(),
       deckInfo: this.deck.getInfo(),
       logs: this.logs.slice(-50), // 最近50条
     };

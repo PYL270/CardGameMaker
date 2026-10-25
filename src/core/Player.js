@@ -117,6 +117,8 @@ export default class Player {
     const weapon = this.getWeapon();
     let range = weapon ? (weapon.range || 1) : 1;
     if ((this.skills || []).some(s => s.id === 'cls_dangyang') && this.hp <= 2) range += 1;
+    // 羁绊：江东双璧 +1（由 Game.init 写入 storage，避免 UI 侧重复计算）
+    range += Math.max(0, Number(this.getStorage('bondAttackRange')) || 0);
     return range;
   }
 
@@ -142,6 +144,12 @@ export default class Player {
     return this.handCards.length;
   }
 
+  /** 武将羁绊 ID（公开信息，供 UI 渲染 chip） */
+  get bondIds() {
+    const ids = this.getStorage('bondIds');
+    return Array.isArray(ids) ? ids : [];
+  }
+
   /**
    * 手牌上限（弃牌阶段用）：默认等于体力值；【英姿】+1。
    * 只对拥有对应技能 id 的角色生效，避免其他角色被误加强。
@@ -151,6 +159,8 @@ export default class Player {
     if ((this.skills || []).some(s => s.id === 'cls_yingzi')) limit += 1;
     if ((this.skills || []).some(s => s.id === 'cls_weiwu')) limit += 1;
     if ((this.skills || []).some(s => s.id === 'cls_dangyang') && this.hp <= 2) limit += 1;
+    // 羁绊：魏之谋主 +1（由 Game.init 写入 storage）
+    limit += Math.max(0, Number(this.getStorage('bondHandLimit')) || 0);
     return Math.max(0, limit);
   }
 
@@ -389,6 +399,8 @@ export default class Player {
     // 坐骑等装备的“每回合限一次”标记 + 本回合是否受伤（供【爪黄飞电】等判定）
     this.storage.delete('equipOnce');
     this.storage.delete('damagedThisTurn');
+    // 卧龙凤雏：每回合首次锦囊摸牌标记随回合重置
+    this.storage.delete('bondTrickUsed');
     this.skills.forEach(s => {
       // 限定技/每局一次：不随回合重置
       if (s.type !== 'limited') s.resetUsage();
@@ -441,6 +453,11 @@ export default class Player {
       usedJiu: this.usedJiu,
       usedJiuCount: this.usedJiuCount,
       usedSha: this.usedSha,
+      // 武将羁绊：公开 ID + 已应用的被动数值（UI chip / 联机同步）
+      bondIds: Array.isArray(this.getStorage('bondIds')) ? [...this.getStorage('bondIds')] : [],
+      bondHandLimit: Math.max(0, Number(this.getStorage('bondHandLimit')) || 0),
+      bondAttackRange: Math.max(0, Number(this.getStorage('bondAttackRange')) || 0),
+      bondTrickDraw: this.getStorage('bondTrickDraw') === true,
     };
   }
 }

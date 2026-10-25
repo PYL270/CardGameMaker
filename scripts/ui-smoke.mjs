@@ -128,6 +128,7 @@ import {
   decodeThemeCode,
   themeOptionLabel,
 } from '../src/utils/themeStudio.js';
+import { detectBonds, bondsByIds } from '../src/data/bonds.js';
 import { buildEquipSlots, equipChoiceEntries, normalizeEquipLimit } from '../src/components/GameBoard/equipSlots.js';
 import { computeCardTilt, shouldEnableCardTilt, CARD_TILT_MAX_DEG } from '../src/components/GameBoard/cardTilt.js';
 import ArtStudio from '../src/components/Editor/ArtStudio.jsx';
@@ -4897,6 +4898,77 @@ async function main() {
   assert(themeCss.includes('.theme-preview') && themeCss.includes('.theme-code-input')
     && themeCss.includes('.theme-studio-section') && themeCss.includes('.theme-preview[data-studio-table="jade"]'),
   '主题工坊预览/设置页样式');
+
+  console.log('\n[58] 武将羁绊：选将预览 / 角色卡 chip / 觉醒横幅');
+  const setupBondHtml = renderToString(React.createElement(SetupPanel, {
+    characters: [],
+    skills: [],
+    onStart: noop,
+    initialPlayerCount: 3,
+    initialSelectedChars: {
+      0: 'cls_liubei',
+      1: 'cls_guanyu',
+      2: 'cls_zhangfei',
+    },
+  }));
+  for (const text of ['激活羁绊', '桃园结义', '刘备', '关羽', '张飞',
+    '体力上限 +1', '组合技']) {
+    assert(setupBondHtml.includes(text), `选将羁绊预览含「${text}」`);
+  }
+  const setupNoBondHtml = renderToString(React.createElement(SetupPanel, {
+    characters: [], skills: [], onStart: noop,
+    initialPlayerCount: 2,
+    initialSelectedChars: { 0: 'cls_caocao', 1: 'cls_liubei' },
+  }));
+  assert(!setupNoBondHtml.includes('bond-setup-preview'), '选将无羁绊时不渲染羁绊区');
+  const bondAreaHtml = renderToString(React.createElement(PlayerArea, {
+    player: {
+      id: 'p_bond', name: '关羽', seatNum: 1, status: 'alive', hp: 5, maxHp: 5,
+      handCardCount: 2, bondIds: ['taoyuan'], equips: {}, skills: [],
+    },
+    isCurrent: false,
+    teamMode: 'ffa',
+    showDistance: false,
+  }));
+  assert(bondAreaHtml.includes('bond-tag') && bondAreaHtml.includes('player-bond-tags')
+    && bondAreaHtml.includes('桃园结义'), 'PlayerArea 羁绊 chip');
+  const bondSelfHtml = renderToString(React.createElement(SelfCharacterCard, {
+    player: {
+      id: 'p_self', name: '关羽', seatNum: 0, status: 'alive', hp: 5, maxHp: 5,
+      handCards: [], bondIds: ['taoyuan'], equips: {}, skills: [], judgeCards: [],
+    },
+    onInfo: noop,
+  }));
+  assert(bondSelfHtml.includes('self-bond-tags') && bondSelfHtml.includes('桃园结义'),
+    'SelfCharacterCard 羁绊 chip');
+  const bondDefs = bondsByIds(['taoyuan', 'weimou']);
+  assert(bondDefs.length === 2 && bondDefs[0].comboName === '桃园合击', 'bondsByIds 提供说明/组合技');
+  assert(detectBonds([
+    { id: 'a', name: '孙权', characterId: 'cls_sunquan' },
+    { id: 'b', name: '周瑜', characterId: 'cls_zhouyu' },
+  ])[0]?.name === '江东双璧', 'UI 侧 detectBonds 检测双人羁绊');
+  assert(attackRange({ bondAttackRange: 1, equips: {} }) === 2
+    && attackRange({ bondAttackRange: 1, equips: { weapon: { name: '麒麟弓', range: 5 } } }) === 6,
+  '距离提示读取羁绊攻击范围加成');
+  const boardBondSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
+  assert(boardBondSrc.includes('bondAwaken') && boardBondSrc.includes('bond-awaken-banner')
+    && boardBondSrc.includes('bond-awaken-name') && boardBondSrc.includes('detectBonds')
+    && boardBondSrc.includes('activeBonds') && boardBondSrc.includes('bond-setup-preview')
+    && boardBondSrc.includes('setTimeout(() => setBondAwaken(null), 2200)'),
+  'GameBoard 羁绊选将/2.2s 觉醒横幅');
+  const playerBondSrc = readFileSync('src/components/GameBoard/PlayerArea.jsx', 'utf8');
+  const selfBondSrc = readFileSync('src/components/GameBoard/SelfCharacterCard.jsx', 'utf8');
+  assert(playerBondSrc.includes('bondsByIds') && playerBondSrc.includes('bond-tag')
+    && selfBondSrc.includes('bondsByIds') && selfBondSrc.includes('self-bond-tags'),
+  'PlayerArea/SelfCharacterCard 接入羁绊 chip');
+  const bondCss = readFileSync('src/App.css', 'utf8');
+  assert(bondCss.includes('.bond-awaken-banner') && bondCss.includes('.bond-tag')
+    && bondCss.includes('.bond-setup-preview') && bondCss.includes('@keyframes bondAwakenIn')
+    && bondCss.includes('prefers-reduced-motion'), '羁绊觉醒/标签/选将 CSS');
+  const serializeSrc = readFileSync('src/net/serialize.js', 'utf8');
+  assert(serializeSrc.includes('bondIds') && serializeSrc.includes('bondName')
+    && serializeSrc.includes('bonds: typeof game.getBondState')
+    && serializeSrc.includes('effect.bondName'), '联机序列化透传羁绊');
 
   const boardCommandSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
   assert(boardCommandSrc.includes('showCommandPalette') && boardCommandSrc.includes('<CommandPalette')

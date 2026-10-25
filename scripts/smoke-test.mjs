@@ -15,6 +15,8 @@ import { buildStandardDeck } from '../src/data/basicCards.js';
 import { CARD_TEXT, getCardText } from '../src/data/cardText.js';
 import { CLASSIC_SKILLS, CLASSIC_CHARACTERS } from '../src/data/classicCharacters.js';
 import { BASE_SKILLS } from '../src/data/basicCharacter.js';
+import { BONDS, detectBonds, bondForPlayer, bondsByIds } from '../src/data/bonds.js';
+import { serializeEffect, serializePlayerPublic, serializeState } from '../src/net/serialize.js';
 import { generateTemplateCode } from '../src/components/CodeGen/TemplateGenerator.js';
 import { decidePlay, decideDiscard } from '../src/ai/AIPlayer.js';
 import { buildPayload, EXAMPLES } from '../src/components/Editor/SkillComposer.jsx';
@@ -2709,6 +2711,122 @@ async function main() {
   assert(legacyPlayer.getWeapon() === legacyWeapon && !('weapon' in legacyPlayer.equips),
     '旧版 subtype 装备槽迁移到通用槽（旧存档兼容）');
   assert(legacyPlayer.equips.slot1 === legacyWeapon, '迁移后的旧装备进入 slot1');
+
+  console.log('\n[45] 武将羁绊：检测 / 被动 / 组合技每局一次');
+  assert(BONDS.length >= 4
+    && BONDS.some(b => b.id === 'taoyuan')
+    && BONDS.some(b => b.id === 'weimou')
+    && BONDS.some(b => b.id === 'jiangdong')
+    && BONDS.some(b => b.id === 'wolong'), '羁绊清单至少 4 组');
+  const pseudoBondPlayers = [
+    { id: 'p1', name: '刘备', seatNum: 0, characterId: 'cls_liubei' },
+    { id: 'p2', name: '关羽', seatNum: 1, characterId: 'cls_guanyu' },
+    { id: 'p3', name: '张飞', seatNum: 2, characterId: 'cls_zhangfei' },
+    { id: 'p4', name: '靶子', seatNum: 3, characterId: 'plain' },
+  ];
+  const detected = detectBonds(pseudoBondPlayers);
+  assert(detected.length === 1 && detected[0].id === 'taoyuan'
+    && detected[0].members.length === 3
+    && detected[0].memberIds.includes('cls_guanyu'), 'detectBonds 检测桃园结义');
+  assert(detectBonds([{ characterId: 'cls_caocao' }, { characterId: 'plain' }]).length === 0,
+    '无羁绊组合不误报');
+  assert(bondForPlayer({ characterId: 'cls_guanyu' }, pseudoBondPlayers)[0]?.id === 'taoyuan',
+    'bondForPlayer 按成员返回羁绊');
+  assert(bondsByIds(['taoyuan', 'nope', 'weimou']).length === 2, 'bondsByIds 过滤未知 ID');
+
+  const bondEffects = [];
+  const bondGame = new Game();
+  bondGame.ui.onEffect = effect => bondEffects.push(effect);
+  await bondGame.init([
+    { name: '刘备', isAI: true, characterId: 'cls_liubei' },
+    { name: '关羽', isAI: true, characterId: 'cls_guanyu' },
+    { name: '张飞', isAI: true, characterId: 'cls_zhangfei' },
+    { name: '靶子', isAI: true },
+  ]);
+  const [bondLiu, bondGuan, bondZhang, bondTarget] = bondGame.players;
+  assert(bondLiu.maxHp === 5 && bondLiu.hp === 5
+    && bondGuan.maxHp === 5 && bondGuan.hp === 5
+    && bondZhang.maxHp === 5 && bondZhang.hp === 5, '桃园结义：maxHp +1 并回复 1');
+  assert(bondLiu.getStorage('bondIds').includes('taoyuan')
+    && bondGuan.getStorage('bondIds').includes('taoyuan'), '羁绊 ID 写入 storage');
+  assert(bondLiu.bondIds.includes('taoyuan') && bondGuan.bondIds.length === 1,
+    'Player.bondIds 公开给 UI chip');
+  const awaken = bondEffects.find(e => e.type === 'bondAwaken');
+  assert(awaken && awaken.bonds?.some(b => b.id === 'taoyuan' && b.name === '桃园结义')
+    && awaken.members?.length === 3, 'Game.init 发出 bondAwaken effect');
+  assert(bondGame.getGameState().bonds[0]?.id === 'taoyuan'
+    && bondGame.getBondState()[0]?.used === false, 'getGameState 暴露羁绊状态');
+  assert(serializePlayerPublic(bondLiu).bondIds.includes('taoyuan')
+    && serializeState(bondGame, 0).bonds[0]?.name === '桃园结义', '联机序列化保留羁绊字段');
+
+  bondTarget.maxHp = 8;
+  bondTarget.hp = 8;
+  bondTarget.handCards = [];
+  bondTarget.skills = [];
+  const shaOne = new Card({ name: '杀', suit: 'spade', number: 7, type: 'basic' });
+  const shaTwo = new Card({ name: '杀', suit: 'club', number: 8, type: 'basic' });
+  await bondGame.resolveShaUse(bondLiu, shaOne, bondTarget);
+  const comboEffects = bondEffects.filter(e => e.type === 'bondCombo');
+  assert(bondTarget.hp === 6 && comboEffects.length === 1,
+    '桃园合击：命中后额外 +1 伤害', `hp=${bondTarget.hp} combo=${comboEffects.length}`);
+  assert(comboEffects[0].bondName === '桃园结义'
+    && comboEffects[0].members?.length >= 2
+    && comboEffects[0].source?.id === bondLiu.id
+    && comboEffects[0].target?.id === bondTarget.id, 'bondCombo 携带羁绊/成员/来源/目标');
+  assert(bondGame.bondUsage.get('taoyuan') === true, '组合技使用记录写入本局');
+  const serializedCombo = serializeEffect(comboEffects[0]);
+  assert(serializedCombo.bondName === '桃园结义'
+    && serializedCombo.members.length >= 2
+    && serializedCombo.sourceName === '刘备'
+    && serializedCombo.targetName === '靶子', 'serializeEffect 透传羁绊合击');
+  const hpAfterFirst = bondTarget.hp;
+  await bondGame.resolveShaUse(bondLiu, shaTwo, bondTarget);
+  assert(bondTarget.hp === hpAfterFirst - 1
+    && bondEffects.filter(e => e.type === 'bondCombo').length === 1,
+  '组合技每局仅一次，第二次不再加伤');
+
+  const weiGame = new Game();
+  await weiGame.init([
+    { name: '曹操', isAI: true, characterId: 'cls_caocao' },
+    { name: '司马懿', isAI: true, characterId: 'cls_simayi' },
+  ]);
+  assert(weiGame.players.every(p => p.getStorage('bondIds').includes('weimou'))
+    && weiGame.players[0].handLimit >= weiGame.players[0].hp + 1
+    && weiGame.players[1].handLimit === weiGame.players[1].hp + 1, '魏之谋主：手牌上限 +1');
+
+  const bondWuGame = new Game();
+  await bondWuGame.init([
+    { name: '孙权', isAI: true, characterId: 'cls_sunquan' },
+    { name: '周瑜', isAI: true, characterId: 'cls_zhouyu' },
+  ]);
+  assert(bondWuGame.players.every(p => p.getAttackRange() === 2), '江东双璧：攻击范围 +1');
+
+  const wolongGame = new Game();
+  await wolongGame.init([
+    { name: '诸葛亮', isAI: true, characterId: 'cls_zhugeliang' },
+    { name: '黄月英', isAI: true, characterId: 'cls_huangyueying' },
+  ]);
+  const wolongP = wolongGame.players[0];
+  wolongP.handCards = [];
+  const trickCard = new Card({ name: '无中生有', suit: 'heart', number: 7, type: 'trick' });
+  assert(await wolongGame.tryBondTrickDraw(wolongP, trickCard) === true
+    && wolongP.handCards.length === 1, '卧龙凤雏：本回合首次锦囊摸 1');
+  assert(await wolongGame.tryBondTrickDraw(wolongP, trickCard) === false
+    && wolongP.handCards.length === 1, '卧龙凤雏：每回合仅首次');
+  wolongP.resetTurn();
+  assert(await wolongGame.tryBondTrickDraw(wolongP, trickCard) === true
+    && wolongP.handCards.length === 2, '卧龙凤雏：新回合可再次触发');
+
+  const plainBondGame = new Game();
+  await plainBondGame.init([
+    { name: '素甲', isAI: true },
+    { name: '素乙', isAI: true },
+  ]);
+  assert(plainBondGame.bonds.length === 0
+    && plainBondGame.getBondState().length === 0
+    && plainBondGame.players.every(p => p.handLimit === p.hp
+      && p.getAttackRange() === 1
+      && (p.getStorage('bondIds') || []).length === 0), '无羁绊对局完全不受影响');
 
   console.log(`\n===== 结果: ${passed} 通过 / ${failed} 失败 =====\n`);
   if (failed > 0) process.exitCode = 1;

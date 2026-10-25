@@ -6933,3 +6933,150 @@ html[data-theme-studio="on"][data-studio-font="calligraphy"] .game-board .self-n
   .theme-preview-card,
   .theme-preview-back { transition: none; }
 }
+
+/* ============================================================
+   武将羁绊：觉醒横幅 / 角色卡 chip / 选将预览
+   ============================================================ */
+.bond-awaken-banner {
+  position: absolute;
+  left: 50%;
+  top: 88px;
+  z-index: 118;
+  width: min(620px, 88vw);
+  transform: translateX(-50%);
+  padding: 12px 20px 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  pointer-events: none;
+  border-radius: 12px;
+  border: 1px solid rgba(214, 185, 110, .48);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(214, 185, 110, .16), transparent 60%),
+    linear-gradient(165deg, rgba(22, 24, 27, .95), rgba(6, 8, 11, .97));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .55), 0 0 34px rgba(214, 185, 110, .12);
+  animation: bondAwakenIn 2.2s cubic-bezier(.22, 1, .36, 1) both;
+}
+.bond-awaken-kicker {
+  font-size: 8.5px;
+  letter-spacing: .34em;
+  color: rgba(214, 185, 110, .68);
+}
+.bond-awaken-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.bond-awaken-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+.bond-awaken-name {
+  font-family: var(--font-calligraphy);
+  font-weight: 400;
+  font-size: clamp(19px, 2.1vw, 26px);
+  letter-spacing: .14em;
+  color: var(--gold-bright);
+  text-shadow: 0 0 20px rgba(214, 185, 110, .24);
+  white-space: nowrap;
+}
+.bond-awaken-members {
+  font-size: 10px;
+  letter-spacing: .08em;
+  color: #bdb4a0;
+  white-space: nowrap;
+}
+@keyframes bondAwakenIn {
+  0% { opacity: 0; transform: translate(-50%, -14px) scale(.97); }
+  12%, 78% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -8px) scale(.99); }
+}
+
+.bond-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.bond-tag {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 185, 110, .34);
+  background:
+    linear-gradient(180deg, rgba(214, 185, 110, .13), rgba(214, 185, 110, .04));
+  color: #e5cf9c;
+  font-size: 9px;
+  letter-spacing: .05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bond-tag.clickable { cursor: pointer; }
+.bond-tag.clickable:hover {
+  border-color: rgba(240, 216, 148, .68);
+  color: var(--gold-bright);
+}
+.player-bond-tags { margin-top: 5px; }
+.self-bond-tags { margin-top: 6px; }
+.bond-setup-preview {
+  margin: 14px 0 2px;
+  padding: 11px 12px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(214, 185, 110, .28);
+  background:
+    radial-gradient(ellipse at 94% 0%, rgba(214, 185, 110, .09), transparent 48%),
+    rgba(214, 185, 110, .035);
+}
+.bond-setup-title {
+  font-family: var(--font-serif);
+  font-size: 12.5px;
+  letter-spacing: .1em;
+  color: var(--gold-bright);
+  margin-bottom: 8px;
+}
+.bond-setup-row {
+  padding: 8px 0 7px;
+  border-top: 1px solid rgba(214, 185, 110, .12);
+}
+.bond-setup-row:first-of-type { border-top: 0; padding-top: 0; }
+.bond-setup-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.bond-setup-tag { font-size: 10px; padding: 2px 8px; }
+.bond-setup-members { font-size: 9.5px; color: var(--text-secondary); }
+.bond-setup-desc {
+  margin-top: 4px;
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: #c9c1b0;
+}
+.bond-setup-combo {
+  margin-top: 2px;
+  font-size: 9.5px;
+  line-height: 1.5;
+  color: rgba(214, 185, 110, .68);
+}
+@media (max-width: 900px) {
+  .bond-tag { font-size: 8.5px; padding: 1px 6px; }
+  .bond-awaken-banner { top: 74px; padding: 9px 12px 10px; }
+  .bond-awaken-name { font-size: 18px; }
+  .bond-awaken-members { font-size: 9px; }
+}
+@media (max-width: 720px) {
+  .bond-awaken-banner { width: calc(100vw - 20px); }
+  .bond-awaken-list { gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bond-awaken-banner { animation: none !important; opacity: 1; }
+}

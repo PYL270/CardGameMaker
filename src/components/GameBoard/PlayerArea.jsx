@@ -9,6 +9,7 @@ import Icon from '../ui/Icon';
 import Portrait from '../ui/Portrait';
 import { skillTypeInfo } from '../ui/skillType';
 import { buildEquipSlots, equipTypeLabel } from './equipSlots';
+import { bondsByIds } from '../../data/bonds';
 
 export default function PlayerArea({
   player, isSelf, isCurrent, selectable, onSelect,
@@ -26,6 +27,7 @@ export default function PlayerArea({
     ? distanceHint(distanceMe, player, distancePlayers)
     : null;
   const equipment = buildEquipSlots(player);
+  const bondDefs = bondsByIds(player.bondIds);
 
   return (
     <div
@@ -88,6 +90,24 @@ export default function PlayerArea({
               onClick={onInfo ? (e) => { e.stopPropagation(); onInfo(s, e); } : undefined}
             >
               {s.label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {bondDefs.length > 0 && (
+        <div className="bond-tags player-bond-tags">
+          {bondDefs.map(bond => (
+            <span
+              key={bond.id}
+              className={`bond-tag ${onInfo ? 'clickable' : ''}`}
+              data-info-trigger="1"
+              title={`${bond.name}：${bond.desc}`}
+              onClick={onInfo
+                ? (e) => { e.stopPropagation(); onInfo({ title: `羁绊 · ${bond.name}`, desc: `${bond.desc} 组合技：${bond.comboDesc}` }, e); }
+                : undefined}
+            >
+              {bond.name}
             </span>
           ))}
         </div>

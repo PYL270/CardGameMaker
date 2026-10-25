@@ -64,6 +64,10 @@ export function serializePlayerPublic(player) {
     usedJiu: player.usedJiu,
     usedJiuCount: player.usedJiuCount,
     usedSha: player.usedSha,
+    // 武将羁绊（公开 ID；供对手/观战者渲染羁绊 chip）
+    bondIds: Array.isArray(player.getStorage?.('bondIds')) ? [...player.getStorage('bondIds')] : [],
+    bondHandLimit: Math.max(0, Number(player.getStorage?.('bondHandLimit')) || 0),
+    bondAttackRange: Math.max(0, Number(player.getStorage?.('bondAttackRange')) || 0),
     // 组队阵营（引擎未合入 team 时为 null，不影响自由混战）
     team: (player.team === 0 || player.team === 1) ? player.team : null,
   };
@@ -92,6 +96,7 @@ export function serializeState(game, seat) {
       ? { id: game.turn.currentPlayer.id, name: game.turn.currentPlayer.name }
       : null,
     players: game.players.map(p => serializePlayerForSeat(p, seat)),
+    bonds: typeof game.getBondState === 'function' ? game.getBondState() : [],
     deckInfo: game.deck.getInfo(),
     logs: game.logs.slice(-40),
   };
@@ -183,6 +188,9 @@ export function serializeEffect(effect) {
     playerId: effect.player?.id || effect.source?.id || null,
     targetId: effect.target?.id || null,
     sourceId: effect.source?.id || null,
+    playerName: effect.player?.name || effect.source?.name || null,
+    sourceName: effect.source?.name || null,
+    targetName: effect.target?.name || null,
     num: effect.num || 0,
     // 八卦阵判定结果：客户端据此显示“判定生效/判定失败”，此前遗漏导致远端永远显示生效
     success: effect.success,
@@ -191,5 +199,27 @@ export function serializeEffect(effect) {
     cardType: effect.card?.type || null,
     name: effect.name || null,
     card: effect.card ? serializeCard(effect.card) : null,
+    // 武将羁绊：允许 bondAwaken / bondCombo 透传到客户端与观战者
+    bondId: effect.bondId || null,
+    bondName: effect.bondName || null,
+    comboName: effect.comboName || null,
+    bonds: Array.isArray(effect.bonds)
+      ? effect.bonds.map(bond => ({
+        id: bond?.id || '',
+        name: bond?.name || '',
+        desc: bond?.desc || '',
+        passive: bond?.passive || '',
+        members: Array.isArray(bond?.members)
+          ? bond.members.map(member => (typeof member === 'string' ? member : member?.name)).filter(Boolean)
+          : [],
+      }))
+      : [],
+    members: Array.isArray(effect.members)
+      ? effect.members.map(member => (
+        typeof member === 'string'
+          ? { id: null, name: member, seatNum: null }
+          : { id: member?.id || null, name: member?.name || '', seatNum: member?.seatNum ?? null }
+      ))
+      : [],
   };
 }

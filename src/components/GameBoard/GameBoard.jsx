@@ -60,6 +60,7 @@ import { mapEffectToFx, enqueueFx, shiftFx } from './effectFx';
 import { PHASE_NAMES } from '../../core/Turn';
 import { GROUP_NAMES } from '../../core/Character';
 import { CLASSIC_CHARACTERS, CLASSIC_SKILLS } from '../../data/classicCharacters';
+import { detectBonds } from '../../data/bonds';
 import { vibrate } from '../../utils/effects';
 import { audio } from '../../audio/audioManager';
 import usePanelDrag from '../../hooks/usePanelDrag';
@@ -181,9 +182,11 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   const [highlights, setHighlights] = useState([]);     // 牌桌导演·高光战报
   const [directorShot, setDirectorShot] = useState(null); // 导演镜头（1.6s 自动淡出）
   const [showHighlightReel, setShowHighlightReel] = useState(false);
+  const [bondAwaken, setBondAwaken] = useState(null);    // 羁绊觉醒横幅（2.2s）
   const dyingWatchRef = useRef(null);
   const highlightSeqRef = useRef(0);
   const recordedEffectsRef = useRef(new Set());
+  const bondAwakenShownRef = useRef('');
 
   // 点击状态/技能/牌面类型印：在点击点附近弹出小说明面板
   const openInfo = (info, e) => {
@@ -209,6 +212,14 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       return false;
     }
   };
+
+  const bondStateKey = (bonds = []) => (Array.isArray(bonds) ? bonds : [])
+    .map(bond => bond?.id || bond?.name || '')
+    .filter(Boolean)
+    .join(',');
+  const bondPlayerKey = (state = gameState) => (state?.players || [])
+    .map(player => player?.id || '')
+    .join(',');
 
   /** 写入高光战报；仅在显示飘字且未开启 reduced-motion 时触发导演镜头 */
   const recordHighlight = (entry, extra = {}) => {
@@ -251,6 +262,38 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     return () => clearTimeout(timer);
   }, [directorShot?.id]);
 
+  // 羁绊觉醒横幅：2.2s 后自动收起（联机 effect 同样生效）
+  useEffect(() => {
+    if (!effect || effect.type !== 'bondAwaken') return undefined;
+    const bonds = Array.isArray(effect.bonds) && effect.bonds.length
+      ? effect.bonds
+      : [{
+        id: effect.bondId || 'bond',
+        name: effect.bondName || '羁绊觉醒',
+        members: Array.isArray(effect.members)
+          ? effect.members.map(member => (typeof member === 'string' ? member : member?.name)).filter(Boolean)
+          : [],
+        desc: '',
+      }];
+    setBondAwaken({ id: effect.id || `${Date.now()}`, bonds });
+    bondAwakenShownRef.current = `${bondPlayerKey()}|${bondStateKey(bonds)}`;
+    const timer = setTimeout(() => setBondAwaken(null), 2200);
+    return () => clearTimeout(timer);
+  }, [effect?.id, effect?.type]);
+
+  // 兜底：联机首帧/本地 effect 被后续演出覆盖时，仍让开局羁绊觉醒被看见
+  useEffect(() => {
+    if (!gameState || gameState.status !== 'running') return undefined;
+    const bonds = Array.isArray(gameState.bonds) ? gameState.bonds : [];
+    if (!bonds.length) return undefined;
+    const signature = `${bondPlayerKey(gameState)}|${bondStateKey(bonds)}`;
+    if (!signature || bondAwakenShownRef.current === signature) return undefined;
+    bondAwakenShownRef.current = signature;
+    setBondAwaken({ id: `state_${signature}`, bonds });
+    const timer = setTimeout(() => setBondAwaken(null), 2200);
+    return () => clearTimeout(timer);
+  }, [gameState?.status, gameState?.bonds, gameState?.players?.[0]?.id]);
+
   // 新的操作提示出现时清空选择
   useEffect(() => {
     setSelectedCards([]);
@@ -288,6 +331,22 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   // 对局结束后关闭投降确认框（联机结算/重开同样生效）
   useEffect(() => {
     if (gameState?.status !== 'running') setShowSurrenderConfirm(false);
+  }, [gameState?.status]);
+
+  // 重开/新局清空高光与导演状态（联机客户端收到房主重开同样生效）
+  const lastGameStatusRef = useRef(null);
+  useEffect(() => {
+    const status = gameState?.status || null;
+    const restarted = lastGameStatusRef.current === 'finished' && status === 'running';
+    if (status === 'idle' || restarted) {
+      setHighlights([]);
+      setDirectorShot(null);
+      setShowHighlightReel(false);
+      setBondAwaken(null);
+      bondAwakenShownRef.current = '';
+      dyingWatchRef.current = null;
+    }
+    lastGameStatusRef.current = status;
   }, [gameState?.status]);
 
   // 战局指令台：Ctrl+K / Ctrl+/ 打开；输入框内单独按 / 不触发
@@ -576,6 +635,8 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     setHighlights([]);
     setDirectorShot(null);
     setShowHighlightReel(false);
+    setBondAwaken(null);
+    bondAwakenShownRef.current = '';
     dyingWatchRef.current = null;
     try {
       await restartGame();
@@ -1018,6 +1079,24 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       )}
       {flash && <div className="damage-flash" />}
       {layout.showFloats && <DirectorShot shot={directorShot} />}
+      {layout.showBanner && bondAwaken && (
+        <div className="bond-awaken-banner" key={`bond-${bondAwaken.id}`} role="status">
+          <span className="bond-awaken-kicker">武将羁绊 · 觉醒</span>
+          <div className="bond-awaken-list">
+            {bondAwaken.bonds.map((bond, index) => (
+              <div className="bond-awaken-item" key={`${bond.id || bond.name}-${index}`}>
+                <strong className="bond-awaken-name">{bond.name}</strong>
+                <span className="bond-awaken-members">
+                  {(bond.members || []).map(member => (
+                    typeof member === 'string' ? member : member?.name
+                  )).filter(Boolean).join(' · ')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {layout.showBanner && banner && (
         <div className="turn-banner" key={banner.id}>
           <span className="turn-banner-name">{banner.name}</span>
@@ -2743,15 +2822,23 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
  */
 export function SetupPanel({
   characters, skills = [], onStart, initialTeamMode = null, initialFriendlyFire = null,
+  initialSelectedChars = null, initialPlayerCount = null,
 }) {
   const initialMode = normalizeTeamMode(initialTeamMode || readDefaultTeamMode());
   const initialFF = initialMode !== 'ffa'
     ? (initialFriendlyFire === null ? readDefaultFriendlyFire() : !!initialFriendlyFire)
     : false;
   const [teamMode, setTeamMode] = useState(initialMode);
-  const [playerCount, setPlayerCount] = useState(() => teamPlayerCount(initialMode) || 2);
+  const [playerCount, setPlayerCount] = useState(() => (
+    teamPlayerCount(initialMode)
+    || (Number(initialPlayerCount) >= 2 ? Math.min(6, Number(initialPlayerCount)) : 2)
+  ));
   const [friendlyFire, setFriendlyFire] = useState(initialFF);
-  const [selectedChars, setSelectedChars] = useState({});
+  const [selectedChars, setSelectedChars] = useState(() => (
+    initialSelectedChars && typeof initialSelectedChars === 'object'
+      ? { ...initialSelectedChars }
+      : {}
+  ));
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 900000) + 100000);
 
   const rerollSeed = () => setSeed(Math.floor(Math.random() * 900000) + 100000);
@@ -2809,6 +2896,19 @@ export function SetupPanel({
   const teamPreviewData = teamPreview(teamMode);
   const countFixed = !!teamPlayerCount(teamMode);
   const currentTeamOption = TEAM_MODE_OPTIONS.find(o => o.id === teamMode) || TEAM_MODE_OPTIONS[0];
+  const selectedBondPlayers = Array.from({ length: playerCount }, (_, index) => {
+    const characterId = selectedChars[index];
+    if (!characterId) return null;
+    const entry = findEntry(characterId);
+    return {
+      id: `setup_${index}`,
+      name: entry?.name || characterId,
+      seatNum: index,
+      characterId,
+      character: { id: characterId, name: entry?.name || characterId },
+    };
+  }).filter(Boolean);
+  const activeBonds = detectBonds(selectedBondPlayers);
 
   return (
     <div className="setup-panel panel">
@@ -2907,6 +3007,24 @@ export function SetupPanel({
           </div>
         );
       })}
+
+      {activeBonds.length > 0 && (
+        <div className="bond-setup-preview">
+          <div className="bond-setup-title">激活羁绊 · {activeBonds.length}</div>
+          {activeBonds.map(bond => (
+            <div className="bond-setup-row" key={bond.id}>
+              <div className="bond-setup-head">
+                <span className="bond-tag bond-setup-tag">{bond.name}</span>
+                <span className="bond-setup-members">
+                  {bond.members.map(member => member.name).join(' · ')}
+                </span>
+              </div>
+              <p className="bond-setup-desc">{bond.desc}</p>
+              <p className="bond-setup-combo">组合技：{bond.comboDesc}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       <button className="btn btn-primary" onClick={handleStart}>
         开始对局
