@@ -23,8 +23,8 @@
 
 | 平台 | 下载 | 说明 |
 |:--|:--|:--|
-| 🪟 **Windows** | [**免安装版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-win-x64-portable.zip) | 解压双击 `CardGameMaker.exe` 就能玩，自带联机中继，**不用装 Node.js** |
-| 🌐 **网页离线版** | [**网页版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-web.zip) | 解压双击 `启动游戏.bat`，用系统自带 PowerShell 起本地服务，Win/mac/Linux 通用 |
+| 🪟 **Windows** | [**免安装版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-win-x64-portable.zip) | 解压后进入 `CardGameMaker` 文件夹，双击 `CardGameMaker.exe`。自带联机中继，**不用装 Node.js** |
+| 🌐 **网页离线版** | [**网页版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-web.zip) | 解压后进入 `CardGameMaker-web` 文件夹，双击 `启动游戏.bat`（mac/Linux 跑 `start.sh`），Win/mac/Linux 通用 |
 | 🤖 **安卓** | [**APK 下载**](https://github.com/PYL270/CardGameMaker/releases/latest) | 在最新 Release 的附件里，手机安装即玩，可扫码联机 |
 | 🧑‍💻 **源码** | [**源码包 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-source.zip) | `git archive` 打包，不含依赖与构建产物 |
 

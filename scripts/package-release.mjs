@@ -32,13 +32,18 @@ fs.mkdirSync(releaseDir, { recursive: true });
 
 const log = (msg) => console.log(`[release] ${msg}`);
 
-/** 用系统自带的 Compress-Archive 压缩目录内容（不含外层目录） */
-function zipDir(dir, zipPath) {
+/** 压缩目录（保留顶层目录名），优先用 Windows 自带的 tar(bsdtar)：正斜杠路径 + UTF-8 文件名，各平台解压都不乱码 */
+function zipDir(srcDir, zipPath) {
   fs.rmSync(zipPath, { force: true });
-  const escaped = zipPath.replace(/'/g, "''");
-  execFileSync('powershell', ['-NoProfile', '-Command',
-    `Compress-Archive -Path '${dir.replace(/'/g, "''")}\\*' -DestinationPath '${escaped}' -CompressionLevel Optimal`],
-  { stdio: 'inherit' });
+  const parent = path.dirname(srcDir);
+  const name = path.basename(srcDir);
+  try {
+    execFileSync('tar', ['-a', '-c', '-f', zipPath, '-C', parent, name], { stdio: 'inherit' });
+  } catch {
+    execFileSync('powershell', ['-NoProfile', '-Command',
+      `Compress-Archive -Path '${srcDir.replace(/'/g, "''")}' -DestinationPath '${zipPath.replace(/'/g, "''")}' -CompressionLevel Optimal`],
+    { stdio: 'inherit' });
+  }
   const mb = (fs.statSync(zipPath).size / 1048576).toFixed(1);
   log(`${path.basename(zipPath)}  ${mb} MB`);
 }
@@ -48,11 +53,13 @@ if (!fs.existsSync(path.join(distDir, 'index.html'))) {
   console.error('缺少 dist/index.html，请先执行 npm run build');
   process.exit(1);
 }
-const webStage = fs.mkdtempSync(path.join(os.tmpdir(), 'cgm-web-'));
+const webTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cgm-web-'));
+const webStage = path.join(webTmp, 'CardGameMaker-web');
+fs.mkdirSync(webStage);
 fs.cpSync(distDir, webStage, { recursive: true });
 fs.cpSync(path.join(root, 'desktop', 'web-launcher'), webStage, { recursive: true });
 zipDir(webStage, path.join(releaseDir, 'CardGameMaker-web.zip'));
-fs.rmSync(webStage, { recursive: true, force: true });
+fs.rmSync(webTmp, { recursive: true, force: true });
 
 // ---------- 2. 安卓 APK ----------
 if (!skipApk) {

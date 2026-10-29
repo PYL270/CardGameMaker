@@ -110,15 +110,26 @@ const [builtDir] = await packager({
     OriginalFilename: `${appName}.exe`,
   },
 });
-console.log(`[portable] 输出目录：${builtDir}`);
+// 目录改名成 CardGameMaker：解压后就是一个同名文件夹，进去双击 exe
+const finalDir = path.join(outDir, appName);
+if (path.basename(builtDir) !== appName) {
+  fs.rmSync(finalDir, { recursive: true, force: true });
+  fs.renameSync(builtDir, finalDir);
+}
+console.log(`[portable] 输出目录：${finalDir}`);
 
 // ---------- 3. zip ----------
 const zipName = `${appName}-win-x64-portable.zip`;
 const zipPath = path.join(outDir, zipName);
 fs.rmSync(zipPath, { force: true });
-execFileSync('powershell', ['-NoProfile', '-Command',
-  `Compress-Archive -Path '${builtDir}\\*' -DestinationPath '${zipPath}' -CompressionLevel Optimal`],
-{ stdio: 'inherit' });
+// 优先用系统自带 tar(bsdtar)，写出的 zip 是标准正斜杠路径、UTF-8 文件名
+try {
+  execFileSync('tar', ['-a', '-c', '-f', zipPath, '-C', outDir, appName], { stdio: 'inherit' });
+} catch {
+  execFileSync('powershell', ['-NoProfile', '-Command',
+    `Compress-Archive -Path '${finalDir}' -DestinationPath '${zipPath}' -CompressionLevel Optimal`],
+  { stdio: 'inherit' });
+}
 const mb = (fs.statSync(zipPath).size / 1048576).toFixed(1);
 console.log(`[portable] 完成：${zipPath}（${mb} MB）`);
 fs.rmSync(staging, { recursive: true, force: true });
