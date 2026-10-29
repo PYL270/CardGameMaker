@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import useGameStore from '../../store/gameStore';
 import PlayerArea from './PlayerArea';
 import HandZone, { cardKey } from './HandZone';
@@ -9,14 +9,15 @@ import { firstEquipSlot } from './equipSlots';
 import SelfCharacterCard from './SelfCharacterCard';
 import ActionPanel from './ActionPanel';
 import SpectatorPanel from './SpectatorPanel';
-import ChatDock, { loadDanmakuEnabled, saveDanmakuEnabled, normalizeMutedIds } from './ChatDock';
-import DanmakuLayer from './DanmakuLayer';
+import GameLogPanel from './GameLogPanel';
+import ChatLayer, { ChatToggleButton } from './ChatLayer';
 import LayoutSettings from './LayoutSettings';
 import GameSettingsPanel from './GameSettingsPanel';
 import CommandPalette from './CommandPalette';
 import TacticalPulse from './TacticalPulse';
 import HighlightReel, { DirectorShot, highlightFromEffect, HIGHLIGHT_LIMIT } from './HighlightReel';
 import { confirmDialog } from '../../utils/dialogService';
+import { readLastSetup, setupSelectedChars } from '../../utils/lastSetup';
 import {
   TEAM_MODE_OPTIONS,
   normalizeTeamMode,
@@ -107,28 +108,65 @@ export function handHintFor(pendingAction) {
   return '请在上方完成选择';
 }
 
+/**
+ * 牌桌快捷键：桌面端少点击。
+ * 1–9 选对应手牌，Enter 确认出牌，Space 结束出牌，Esc 取消选择。
+ * 必须独立成组件：GameBoard 在选将阶段会提前 return，Hook 放在主组件里会破坏顺序。
+ */
+function BoardHotkeys({
+  pendingAction, isSpectator, selectedCards, selectedTarget,
+  quickPlayCard, quickPlayCanConfirm, resolveAction, clearSelection,
+}) {
+  useEffect(() => {
+    const onKey = (e) => {
+      if (!pendingAction || isSpectator) return;
+      const el = e.target;
+      const tag = (el?.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || el?.isContentEditable) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (document.querySelector('.result-overlay, .layout-settings-overlay')) return;
+      if (e.key === 'Escape') {
+        if (selectedCards.length || selectedTarget) { clearSelection(); e.preventDefault(); }
+        return;
+      }
+      if (pendingAction.type !== 'play') return;
+      if (e.key === 'Enter') {
+        if (quickPlayCanConfirm) {
+          resolveAction({ card: quickPlayCard, targets: selectedTarget ? [selectedTarget] : [] });
+          clearSelection();
+          e.preventDefault();
+        }
+        return;
+      }
+      if (e.key === ' ') {
+        resolveAction({ type: 'endPlay' });
+        e.preventDefault();
+        return;
+      }
+      if (/^[1-9]$/.test(e.key)) {
+        const node = document.querySelectorAll('.hand-zone .game-card')[Number(e.key) - 1];
+        if (node) { node.click(); e.preventDefault(); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [pendingAction, isSpectator, selectedCards, selectedTarget, quickPlayCard, quickPlayCanConfirm, resolveAction, clearSelection]);
+  return null;
+}
+
 export default function GameBoard({ navigate, preview = null, initialLayout = null }) {
   // 预览/测试：SSR 下 zustand 只能读到 store 初始 state，preview 允许直接渲染指定对局视图
   const storeGameState = useGameStore(s => s.gameState);
   const storeGame = useGameStore(s => s.game);
   const storePendingAction = useGameStore(s => s.pendingAction);
   const storeEffect = useGameStore(s => s.effect);
-  const storeLogs = useGameStore(s => s.logs);
   const storeOnline = useGameStore(s => s.online);
   const gameState = preview?.gameState ?? storeGameState;
   const game = preview?.game ?? storeGame;
   const pendingAction = preview?.pendingAction ?? storePendingAction;
   const effect = preview?.effect ?? storeEffect;
-  const logs = preview?.logs ?? storeLogs;
   const online = preview?.online ?? storeOnline;
   const isSpectator = !!(online?.spectator || online?.role === 'spectator');
-  const chatMessages = useGameStore(s => s.online.chatMessages);
-  const chatUnread = useGameStore(s => s.online.chatUnread);
-  const chatMuted = useGameStore(s => s.chatMuted || s.online.chatMuted);
-  const chatClientId = useGameStore(s => s.online.clientId);
-  const sendChat = useGameStore(s => s.sendChat);
-  const toggleChatMute = useGameStore(s => s.toggleChatMute);
-  const markChatRead = useGameStore(s => s.markChatRead);
   const resolveAction = useGameStore(s => s.resolveAction);
   const restartGame = useGameStore(s => s.restartGame);
   const surrenderGame = useGameStore(s => s.surrenderGame);
@@ -170,9 +208,6 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
   const [recommendHint, setRecommendHint] = useState(null);
   const [recommendedKey, setRecommendedKey] = useState('');
   const [chatOpen, setChatOpen] = useState(false);
-  const [danmakuEnabled, setDanmakuEnabled] = useState(() => loadDanmakuEnabled());
-  const mutedChatIds = normalizeMutedIds(chatMuted);
-  const unreadChat = Math.max(0, Number(chatUnread) || 0);
   const recommendingRef = useRef(false);
   const [infoPanel, setInfoPanel] = useState(null);
   const [cardFx, setCardFx] = useState(null);
@@ -201,7 +236,7 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       y: Math.max(64, Math.min(baseY, vh - 230)),
     });
   };
-  const logRef = useRef(null);
+
   const selfDrag = usePanelDrag('selfzone');
 
   const prefersReducedMotion = () => {
@@ -247,13 +282,6 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
     }
     return item;
   };
-
-  // 自动滚动日志
-  useEffect(() => {
-    if (showLog && logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
-    }
-  }, [logs, showLog]);
 
   // 导演镜头 1.6s 自动淡出（不阻塞点击）
   useEffect(() => {
@@ -1180,19 +1208,10 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           <Icon name="book" size={15} /><span className="btn-label">说明</span>
         </button>
         {online.active && (
-          <button
-            className={`btn btn-small header-action chat-toggle ${chatOpen ? 'btn-primary' : ''}`}
-            title="局内聊天"
-            onClick={() => {
-              setChatOpen(v => !v);
-              if (!chatOpen) markChatRead?.();
-            }}>
-            <Icon name="chat" size={15} />
-            <span className="btn-label">聊天</span>
-            {unreadChat > 0 && (
-              <span className="chat-unread-badge">{unreadChat > 99 ? '99+' : unreadChat}</span>
-            )}
-          </button>
+          <ChatToggleButton
+            chatOpen={chatOpen}
+            onToggle={() => setChatOpen(v => !v)}
+          />
         )}
         {layout.logPosition !== 'hidden' && (
           <button className="btn btn-small header-action"
@@ -1374,31 +1393,11 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
       )}
 
       {online.active && (
-        <DanmakuLayer
-          messages={chatMessages || []}
-          clientId={chatClientId || online.clientId || ''}
-          mutedIds={mutedChatIds}
-          enabled={danmakuEnabled}
-        />
-      )}
-      {online.active && (
-        <ChatDock
-          open={chatOpen}
-          onClose={() => setChatOpen(false)}
-          roomCode={online.roomCode || ''}
-          messages={chatMessages || []}
-          clientId={chatClientId || online.clientId || ''}
-          mutedIds={mutedChatIds}
-          onToggleMute={id => toggleChatMute?.(id)}
-          onMarkRead={() => markChatRead?.()}
-          onSend={typeof sendChat === 'function' ? text => sendChat(text) : undefined}
-          connected={!!online.connected}
-          spectator={isSpectator}
-          danmakuEnabled={danmakuEnabled}
-          onToggleDanmaku={next => {
-            setDanmakuEnabled(next);
-            saveDanmakuEnabled(next);
-          }}
+        <ChatLayer
+          online={online}
+          isSpectator={isSpectator}
+          chatOpen={chatOpen}
+          onCloseChat={() => setChatOpen(false)}
         />
       )}
 
@@ -1453,18 +1452,12 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
         </button>
       )}
       {showLog && layout.logPosition !== 'hidden' && (
-        <div className={`log-panel panel log-panel-${layout.logPosition}`} ref={logRef}>
-          <div className="log-title">
-            <span>对局日志</span>
-            <button className="btn btn-small log-collapse" onClick={() => setShowLog(false)}>
-              <Icon name="chevron-down" size={13} className="is-open" />
-              <span>收起</span>
-            </button>
-          </div>
-          {logs.slice(-40).map((log, i) => (
-            <div key={i} className="log-line">{log.message}</div>
-          ))}
-        </div>
+        <GameLogPanel
+          logs={preview?.logs}
+          showLog={showLog}
+          logPosition={layout.logPosition}
+          onCollapse={() => setShowLog(false)}
+        />
       )}
 
       {/* 投降确认：游戏内弹层，避免 window.confirm 在手机/联机下阻断 */}
@@ -1553,6 +1546,17 @@ export default function GameBoard({ navigate, preview = null, initialLayout = nu
           onClose={() => setShowLayoutSettings(false)}
         />
       )}
+
+      <BoardHotkeys
+        pendingAction={pendingAction}
+        isSpectator={isSpectator}
+        selectedCards={selectedCards}
+        selectedTarget={selectedTarget}
+        quickPlayCard={quickPlayCard}
+        quickPlayCanConfirm={quickPlayCanConfirm}
+        resolveAction={resolveAction}
+        clearSelection={clearSelection}
+      />
 
       <style>{`
         .game-board {
@@ -2824,20 +2828,24 @@ export function SetupPanel({
   characters, skills = [], onStart, initialTeamMode = null, initialFriendlyFire = null,
   initialSelectedChars = null, initialPlayerCount = null,
 }) {
-  const initialMode = normalizeTeamMode(initialTeamMode || readDefaultTeamMode());
+  // 上次阵容回填：点过「布阵」回来时，人数 / 模式 / 武将都还是上一局的样子
+  const lastSetup = useMemo(() => readLastSetup(), []);
+  const initialMode = normalizeTeamMode(initialTeamMode || lastSetup?.teamMode || readDefaultTeamMode());
   const initialFF = initialMode !== 'ffa'
     ? (initialFriendlyFire === null ? readDefaultFriendlyFire() : !!initialFriendlyFire)
     : false;
   const [teamMode, setTeamMode] = useState(initialMode);
-  const [playerCount, setPlayerCount] = useState(() => (
-    teamPlayerCount(initialMode)
-    || (Number(initialPlayerCount) >= 2 ? Math.min(6, Number(initialPlayerCount)) : 2)
-  ));
+  const [playerCount, setPlayerCount] = useState(() => {
+    const fixed = teamPlayerCount(initialMode);
+    if (fixed) return fixed;
+    if (Number(initialPlayerCount) >= 2) return Math.min(6, Number(initialPlayerCount));
+    return lastSetup?.configs?.length || 2;
+  });
   const [friendlyFire, setFriendlyFire] = useState(initialFF);
   const [selectedChars, setSelectedChars] = useState(() => (
     initialSelectedChars && typeof initialSelectedChars === 'object'
       ? { ...initialSelectedChars }
-      : {}
+      : setupSelectedChars(lastSetup)
   ));
   const [seed, setSeed] = useState(() => Math.floor(Math.random() * 900000) + 100000);
 

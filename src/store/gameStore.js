@@ -6,6 +6,7 @@ import Game from '../core/Game';
 import Character from '../core/Character';
 import Skill from '../core/Skill';
 import { net } from '../net/netClient';
+import { readLastSetup, saveLastSetup } from '../utils/lastSetup';
 import {
   serializeState,
   serializeEffect,
@@ -115,6 +116,9 @@ function mergeChatMessages(existing, incoming) {
     .slice(-CHAT_HISTORY_LIMIT);
 }
 
+/** 对局日志在 store 中的保留上限（引擎侧另有上限，见 Game.addLog） */
+const LOG_STORE_LIMIT = 200;
+
 // 对局代次：重开/退出时递增，用于丢弃旧对局的异步回调
 let runToken = 0;
 
@@ -135,15 +139,25 @@ export function normalizeAiDelay(raw) {
   return Math.min(AI_DELAY_MAX, Math.max(AI_DELAY_MIN, Math.round(n)));
 }
 
-/** 读取设置页 cgm_game_config.aiDelay（旧配置 <700 运行时 clamp 到 700） */
+/** 读取设置页 cgm_game_config.aiDelay（旧配置 <700 运行时 clamp 到 700）
+ *  带短 TTL 缓存：AI 每次行动都调用，避免热路径反复 JSON.parse localStorage */
+const AI_DELAY_CACHE_TTL = 2000;
+let aiDelayCache = { at: 0, value: AI_DELAY_DEFAULT };
+
 function readAiDelay() {
+  const now = Date.now();
+  if (now - aiDelayCache.at < AI_DELAY_CACHE_TTL) return aiDelayCache.value;
+  let value = AI_DELAY_DEFAULT;
   try {
-    if (typeof localStorage === 'undefined') return AI_DELAY_DEFAULT;
-    const cfg = JSON.parse(localStorage.getItem('cgm_game_config') || '{}');
-    return normalizeAiDelay(cfg?.aiDelay);
+    if (typeof localStorage !== 'undefined') {
+      const cfg = JSON.parse(localStorage.getItem('cgm_game_config') || '{}');
+      value = normalizeAiDelay(cfg?.aiDelay);
+    }
   } catch {
-    return AI_DELAY_DEFAULT;
+    value = AI_DELAY_DEFAULT;
   }
+  aiDelayCache = { at: now, value };
+  return value;
 }
 
 const aiPause = (ms) => {
@@ -203,7 +217,9 @@ function disposeGame(game, pendingAction) {
     game.ui.askForPlay = null;
     game.ui.askForDiscard = null;
     game.ui.askForCard = null;
+    game.ui.askForCards = null;
     game.ui.askForConfirm = null;
+    game.ui.askForTarget = null;
     game.ui.askForEquipReplace = null;
     game.onLog = null;
     game.status = 'finished';
@@ -265,9 +281,16 @@ function defaultOnline() {
  * - 房主：接收客户端操作并唤醒挂起请求
  * - 客户端：接收开始/状态/提示/打击反馈
  */
+/** 房主权威消息类型：必须来自座位 0，防止恶意客户端伪造全局状态/提示 */
+const HOST_AUTHORITATIVE_KINDS = new Set(['state', 'effect', 'prompt', 'start']);
+
 function handleNetRelay(msg, api) {
   const { set, get } = api;
   const online = get().online;
+
+  // 中继服务器总会为 relay 消息注入数字 from（发送者座位）；
+  // 房主权威消息只能来自座位 0，缺失或非 0 一律丢弃
+  if (HOST_AUTHORITATIVE_KINDS.has(msg.kind) && Number(msg.from) !== 0) return;
 
   if (msg.kind === 'action') {
     if (!online.isHost) return;
@@ -537,6 +560,34 @@ const useGameStore = create((set, get) => ({
     return game;
   },
 
+  // 一键开局：沿用上次阵容（没有记录就用 2 人默认），跳过选将页
+  quickStart: async () => {
+    const inMemory = get().lastPlayerConfigs;
+    const saved = inMemory?.length
+      ? {
+          configs: inMemory,
+          teamMode: get().lastTeamMode,
+          friendlyFire: get().lastFriendlyFire,
+          autoTrigger: get().lastAutoTrigger,
+        }
+      : readLastSetup();
+
+    const configs = saved?.configs?.length
+      ? saved.configs
+      : [
+          { name: '你', isAI: false, team: null, characterId: null },
+          { name: 'AI1', isAI: true, team: null, characterId: null },
+        ];
+
+    get().initGame();
+    await get().startGame(configs, null, {
+      teamMode: saved?.teamMode || 'ffa',
+      friendlyFire: saved?.friendlyFire === true,
+      autoTrigger: saved?.autoTrigger === true,
+    });
+    return configs;
+  },
+
   // 开始游戏（options：teamMode 支持 ffa / 2v2 / 3v3；friendlyFire 仅组队生效）
   startGame: async (playerConfigs, seed = null, options = {}) => {
     const { characters, skills } = get();
@@ -563,9 +614,9 @@ const useGameStore = create((set, get) => ({
     game.config.friendlyFire = friendlyFire;
     game.config.autoTrigger = autoTrigger;
 
-    // 记录本局配置，供"再来一局"使用（保留每座位的 team 字段）
+    // 记录本局配置，供"再来一局"使用（保留每座位的 team 字段；逐项浅拷贝，避免持有引擎侧可变对象引用）
     set({
-      lastPlayerConfigs: playerConfigs,
+      lastPlayerConfigs: playerConfigs.map(c => ({ ...c })),
       lastTeamMode: teamMode,
       lastFriendlyFire: friendlyFire,
       lastAutoTrigger: autoTrigger,
@@ -582,7 +633,7 @@ const useGameStore = create((set, get) => ({
       if (token === runToken) set({ gameState: state });
     };
     game.onLog = (log) => {
-      if (token === runToken) set(state => ({ logs: [...state.logs, log] }));
+      if (token === runToken) set(state => ({ logs: [...state.logs, log].slice(-LOG_STORE_LIMIT) }));
     };
     // 打击感反馈
     game.ui.onEffect = (e) => {
@@ -627,26 +678,28 @@ const useGameStore = create((set, get) => ({
       });
     };
 
-    game.ui.askForDiscard = (player, count) => new Promise(async (resolve) => {
+    game.ui.askForDiscard = async (player, count) => {
       if (player.isAI) {
         await aiPause(340);
         const sorted = [...player.handCards].sort((a, b) => (a.ai.order || 0) - (b.ai.order || 0));
-        resolve(sorted.slice(0, count));
-      } else {
-        set({ pendingAction: { type: 'discard', player, count, resolve } });
+        return sorted.slice(0, count);
       }
-    });
+      // 人类玩家：等待 UI 完成 pendingAction 后再继续
+      return new Promise((resolve) => {
+        set({ pendingAction: { type: 'discard', player, count, resolve } });
+      });
+    };
 
     // 人类响应牌(闪/桃等)
-    game.ui.askForCard = (player, filter) => new Promise(async (resolve) => {
+    game.ui.askForCard = async (player, filter) => {
       if (player.isAI) {
         await aiPause(340);
-        const card = player.handCards.find(filter);
-        resolve(card || null);
-      } else {
-        set({ pendingAction: { type: 'respond', player, filter, resolve } });
+        return player.handCards.find(filter) || null;
       }
-    });
+      return new Promise((resolve) => {
+        set({ pendingAction: { type: 'respond', player, filter, resolve } });
+      });
+    };
 
     // 装备栏已满：玩家必须选择一个旧装备槽替换（AI/无 window 直接第一项）
     game.ui.askForEquipReplace = (player, newCard, current, limit) => {
@@ -715,6 +768,9 @@ const useGameStore = create((set, get) => ({
     set({ logs: [] });
     await game.init(playerConfigs);
     set({ gameState: game.getGameState() });
+
+    // 持久化本局阵容：关掉程序后主菜单仍能「一键开局」
+    saveLastSetup({ configs: playerConfigs, teamMode, friendlyFire, autoTrigger });
 
     // 主循环后台运行，避免阻塞 UI（"再来一局"可立即返回）
     game.run(0).catch((e) => {
@@ -1053,7 +1109,7 @@ const useGameStore = create((set, get) => ({
 
     set({
       online: { ...online, active: true, playerCount: total },
-      lastPlayerConfigs: configs,
+      lastPlayerConfigs: configs.map(c => ({ ...c })),
       lastTeamMode: 'ffa',
       lastFriendlyFire: false,
       lastAutoTrigger: readStoredAutoTrigger(),
@@ -1105,7 +1161,7 @@ const useGameStore = create((set, get) => ({
     };
     game.onLog = (log) => {
       if (token !== runToken) return;
-      set(state => ({ logs: [...state.logs, log] }));
+      set(state => ({ logs: [...state.logs, log].slice(-LOG_STORE_LIMIT) }));
     };
     game.ui.onEffect = (effect) => {
       if (token !== runToken) return;
@@ -1116,10 +1172,6 @@ const useGameStore = create((set, get) => ({
     // 向指定座位发提示并等待其操作；超时使用默认值
     const askRemote = (seat, prompt, parse) => new Promise((resolve) => {
       const requestId = `${Date.now()}_${++hostSeq}`;
-      hostRequests.set(requestId, {
-        resolve: (payload) => resolve(parse(payload)),
-      });
-      net.relay(seat, { kind: 'prompt', requestId, prompt });
       const timer = setTimeout(() => {
         if (hostRequests.has(requestId)) {
           hostRequests.delete(requestId);
@@ -1127,6 +1179,14 @@ const useGameStore = create((set, get) => ({
         }
       }, 60000);
       if (timer.unref) timer.unref();
+      hostRequests.set(requestId, {
+        // 正常响应后清掉超时计时器，避免每个远端操作都残留一个 60s 的定时器
+        resolve: (payload) => {
+          clearTimeout(timer);
+          resolve(parse(payload));
+        },
+      });
+      net.relay(seat, { kind: 'prompt', requestId, prompt });
     });
 
     // 出牌
@@ -1179,41 +1239,43 @@ const useGameStore = create((set, get) => ({
     };
 
     // 弃牌
-    game.ui.askForDiscard = (player, count) => new Promise(async (resolve) => {
+    game.ui.askForDiscard = async (player, count) => {
       if (player.isAI) {
         await aiPause(340);
         const sorted = [...player.handCards].sort((a, b) => (a.ai.order || 0) - (b.ai.order || 0));
-        return resolve(sorted.slice(0, count));
+        return sorted.slice(0, count);
       }
       if (player.seatNum === 0) {
-        set({ pendingAction: { type: 'discard', player, count, resolve, online: true } });
-        return;
+        return new Promise((resolve) => {
+          set({ pendingAction: { type: 'discard', player, count, resolve, online: true } });
+        });
       }
-      askRemote(player.seatNum, promptDiscard(player, count), (payload) => {
+      return askRemote(player.seatNum, promptDiscard(player, count), (payload) => {
         if (!payload || payload.kind !== 'discard') return [];
         return (payload.cardIds || [])
           .map(id => player.handCards.find(c => c.id === id))
           .filter(Boolean)
           .slice(0, count);
-      }).then(resolve);
-    });
+      });
+    };
 
     // 响应牌（闪/桃/杀等）
-    game.ui.askForCard = (player, filter) => new Promise(async (resolve) => {
+    game.ui.askForCard = async (player, filter) => {
       if (player.isAI) {
         await aiPause(340);
-        return resolve(player.handCards.find(filter) || null);
+        return player.handCards.find(filter) || null;
       }
       if (player.seatNum === 0) {
-        set({ pendingAction: { type: 'respond', player, filter, resolve, online: true } });
-        return;
+        return new Promise((resolve) => {
+          set({ pendingAction: { type: 'respond', player, filter, resolve, online: true } });
+        });
       }
-      askRemote(player.seatNum, promptRespond(player, filter), (payload) => {
+      return askRemote(player.seatNum, promptRespond(player, filter), (payload) => {
         if (!payload || payload.kind !== 'respond' || !payload.cardId) return null;
         // 只接受仍在手牌且满足响应条件的牌，防止客户端回执被伪造/过期
         return player.handCards.find(c => c.id === payload.cardId && filter(c)) || null;
-      }).then(resolve);
-    });
+      });
+    };
 
     // 装备栏替换（房主本人弹窗；远端/ AI 回退第一项，避免旧协议挂起）
     game.ui.askForEquipReplace = (player, newCard, current, limit) => {
@@ -1365,8 +1427,8 @@ const useGameStore = create((set, get) => ({
     set(state => ({
       characters: state.characters.map(c => {
         if (c.id !== id) return c;
-        Object.assign(c, updates);
-        return c;
+        // 生成新实例（保留原型方法），不原地修改旧对象，保证 React 浅比较可见
+        return Object.assign(Object.create(Object.getPrototypeOf(c)), c, updates);
       }),
     }));
     const { characters, skills } = get();
@@ -1398,8 +1460,8 @@ const useGameStore = create((set, get) => ({
     set(state => {
       const skills = state.skills.map(s => {
         if (s.id !== id) return s;
-        Object.assign(s, updates);
-        return s;
+        // 生成新实例（保留原型方法），不原地修改旧对象，保证 React 浅比较可见
+        return Object.assign(Object.create(Object.getPrototypeOf(s)), s, updates);
       });
       persist(state.characters, skills);
       return { skills };

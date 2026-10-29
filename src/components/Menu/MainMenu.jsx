@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import useGameStore from '../../store/gameStore';
 import Icon from '../ui/Icon';
 import MobileNotice from './MobileNotice';
+import { teamModeLabel } from '../GameBoard/teamConfig';
+import { readLastSetup } from '../../utils/lastSetup';
 
 /**
  * 主菜单 · 赌桌布阵式编排
@@ -14,8 +16,22 @@ import MobileNotice from './MobileNotice';
  */
 export default function MainMenu({ navigate }) {
   const initGame = useGameStore(s => s.initGame);
+  const quickStart = useGameStore(s => s.quickStart);
 
-  const handleStart = () => {
+  // 上次阵容：直接开局时用它，避免每次都走一遍选将页
+  const lastSetup = useMemo(() => readLastSetup(), []);
+  const lineup = lastSetup?.configs?.length
+    ? `沿用上次阵容 · ${lastSetup.configs.length} 人 · ${teamModeLabel(lastSetup.teamMode)}`
+    : '单机对局 · 2 人即可开 · 阵容随时可改';
+
+  /** 一键开局：主菜单直接进入牌局（沿用上次阵容） */
+  const handleStart = async () => {
+    await quickStart();
+    navigate('game');
+  };
+
+  /** 布阵：进入选将页，改人数 / 武将 / 组队 */
+  const openSetup = () => {
     initGame();
     navigate('game');
   };
@@ -29,12 +45,11 @@ export default function MainMenu({ navigate }) {
       if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
       if (document.querySelector('.overlay, .result-overlay, .layout-settings-overlay')) return;
       e.preventDefault();
-      initGame();
-      navigate('game');
+      handleStart();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [initGame, navigate]);
+  }, [quickStart, navigate]);
 
   const createItems = [
     { icon: 'editor', title: '武将编辑器', desc: '技能 · 属性 · 立绘', go: () => navigate('editor') },
@@ -150,6 +165,9 @@ export default function MainMenu({ navigate }) {
             <span className="mm-band-label">对战</span>
             <span className="mm-band-hint">PLAY</span>
             <i className="mm-rule" />
+            <button className="mm-mini" onClick={openSetup} title="调整人数、武将、组队模式">
+              布阵<Icon name="chevron-right" size={12} />
+            </button>
           </div>
 
           <div className="mm-grid">
@@ -160,7 +178,7 @@ export default function MainMenu({ navigate }) {
               </span>
               <span className="mm-hero-text">
                 <span className="mm-hero-title">开始游戏</span>
-                <span className="mm-hero-desc">单机对局 · 2–6 人 · 座位与牌序可复现</span>
+                <span className="mm-hero-desc">{lineup}</span>
               </span>
               <span className="mm-hero-key" aria-hidden="true">ENTER</span>
             </button>
@@ -500,6 +518,28 @@ export default function MainMenu({ navigate }) {
           margin-left: 4px;
           background: linear-gradient(90deg, rgba(214, 185, 110, 0.26), rgba(214, 185, 110, 0.02));
         }
+        /* 次级入口：布阵（不抢主按钮的视觉权重） */
+        .mm-mini {
+          display: inline-flex;
+          align-items: center;
+          gap: 2px;
+          flex: 0 0 auto;
+          padding: 3px 9px 3px 11px;
+          border-radius: 999px;
+          border: 1px solid rgba(214, 185, 110, 0.22);
+          background: rgba(214, 185, 110, 0.05);
+          color: var(--text-secondary);
+          font-size: 11.5px;
+          letter-spacing: 1.6px;
+          cursor: pointer;
+          transition: color .18s var(--ease-ios), border-color .18s var(--ease-ios), background .18s var(--ease-ios);
+        }
+        .mm-mini:hover {
+          color: var(--gold-bright);
+          border-color: rgba(214, 185, 110, 0.5);
+          background: rgba(214, 185, 110, 0.12);
+        }
+        .mm-mini .ui-icon { opacity: .7; }
 
         .mm-grid {
           display: grid;

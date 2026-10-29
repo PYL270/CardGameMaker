@@ -5,6 +5,7 @@ import { generateLLMCode } from '../CodeGen/LLMGenerator';
 import Icon from '../ui/Icon';
 import Select from '../ui/Select';
 import { alertDialog } from '../../utils/dialogService';
+import { precheckSkillCode } from '../../core/safeCode';
 
 export default function CodePreview({ navigate, context }) {
   const characters = useGameStore(s => s.characters);
@@ -78,9 +79,8 @@ export default function CodePreview({ navigate, context }) {
   const handleApply = async () => {
     if (!generatedCode) return;
     try {
-      // 只编译不执行，避免副作用，用于语法检查
-      // eslint-disable-next-line no-new-func
-      new Function(generatedCode);
+      // 只编译不执行，避免副作用；同时过安全黑名单与长度限制
+      precheckSkillCode(generatedCode);
       await alertDialog({
         title: '语法检查通过',
         message: '代码语法检查通过。请复制到游戏代码区或保存为扩展文件使用。',

@@ -1,14 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import MainMenu from './components/Menu/MainMenu';
-import GameBoard from './components/GameBoard/GameBoard';
-import CharacterEditor from './components/Editor/CharacterEditor';
-import SkillEditor from './components/Editor/SkillEditor';
-import CodePreview from './components/Editor/CodePreview';
-import Settings from './components/Menu/Settings';
-import OnlineLobby from './components/Menu/OnlineLobby';
-import AudioSettings from './components/Menu/AudioSettings';
-import AppearanceSettings from './components/Menu/AppearanceSettings';
-import QuickPlay from './components/Menu/QuickPlay.jsx';
+// 对局页体积大（引擎+棋盘），同样按需加载；菜单挂载后空闲时预热
+const GameBoard = lazy(() => import('./components/GameBoard/GameBoard'));
+// 次要页面按需加载：编辑器/大厅/设置不进首包（ArtStudio/VoiceStudio 随编辑器一起拆出）
+const CharacterEditor = lazy(() => import('./components/Editor/CharacterEditor'));
+const SkillEditor = lazy(() => import('./components/Editor/SkillEditor'));
+const CodePreview = lazy(() => import('./components/Editor/CodePreview'));
+const Settings = lazy(() => import('./components/Menu/Settings'));
+const OnlineLobby = lazy(() => import('./components/Menu/OnlineLobby'));
+const AudioSettings = lazy(() => import('./components/Menu/AudioSettings'));
+const AppearanceSettings = lazy(() => import('./components/Menu/AppearanceSettings'));
+const QuickPlay = lazy(() => import('./components/Menu/QuickPlay.jsx'));
 import FxLayer from './components/GameBoard/FxOverlay';
 import {
   parseFxPreview,
@@ -139,6 +141,18 @@ export default function App() {
     audio.setScene(currentPage === PAGES.GAME ? 'game' : 'menu');
   }, [currentPage]);
 
+  // 空闲时预热对局分包：玩家点"开始对局"时无需再等下载
+  useEffect(() => {
+    const warm = () => { import('./components/GameBoard/GameBoard').catch(() => {}); };
+    if (typeof window === 'undefined') return undefined;
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(warm, { timeout: 3000 });
+      return () => window.cancelIdleCallback?.(id);
+    }
+    const t = setTimeout(warm, 1200);
+    return () => clearTimeout(t);
+  }, []);
+
   // 全局点击反馈：按钮水波纹 + 图标按压；任意可点卡牌/武将/装备/菜单也有一次轻量金色脉冲
   useEffect(() => {
     const CLICKABLE = [
@@ -230,7 +244,9 @@ export default function App() {
     <div className="app" data-platform={platform} data-input={inputMode}>
       <SceneBackground variant={currentPage === PAGES.GAME ? 'game' : 'menu'} />
       <div className="page-view page-transition" key={currentPage}>
-        {page}
+        <Suspense fallback={<div className="page-lazy-loading" aria-live="polite">加载中…</div>}>
+          {page}
+        </Suspense>
       </div>
       <FxLayer queue={previewFxQueue} onShift={() => setPreviewFxQueue(q => shiftFx(q))} />
       <GameDialog />

@@ -15,6 +15,8 @@ const ROOM_TTL = 1000 * 60 * 60 * 6; // 6 小时无人自动清理
 const CHAT_MAX_LEN = 200;       // 单条聊天最大字符数
 const CHAT_HISTORY_MAX = 50;    // 房间聊天历史保留条数
 const CHAT_RATE_MS = 700;       // 每连接聊天限流间隔
+const RELAY_BURST = 60;         // relay 消息令牌桶容量（允许正常突发）
+const RELAY_REFILL_PER_SEC = 30; // relay 消息每秒回填速率
 
 const rooms = new Map(); // code -> { code, members: Map<ws,{id,seat,name,role,lastChatAt}>, nextSeat, spectatorSeq, chat:[], chatSeq, createdAt }
 let roomSeq = 0;
@@ -229,6 +231,19 @@ function handle(ws, msg) {
       if ((senderInfo.role || 'player') === 'spectator') {
         return send(ws, { t: 'error', message: '观战者不能操作' });
       }
+      // 令牌桶限流：只针对普通客户端（房主座位 0 是权威端，每步广播 state/effect/prompt，
+      // 限流会丢关键消息；恶意客户端也拿不到座位 0）。桶 60 / 每秒回 30，足够正常操作，只挡恶意刷屏
+      if ((senderInfo.seat ?? -1) !== 0) {
+        const now = Date.now();
+        const tokens = Math.min(
+          RELAY_BURST,
+          ((senderInfo.relayTokens ?? RELAY_BURST))
+            + ((now - (senderInfo.relayLastAt || now)) / 1000) * RELAY_REFILL_PER_SEC,
+        );
+        senderInfo.relayLastAt = now;
+        if (tokens < 1) return send(ws, { t: 'error', message: '操作过于频繁，请稍后再试' });
+        senderInfo.relayTokens = tokens - 1;
+      }
       const payload = { t: 'relay', from: senderInfo.role === 'spectator' ? null : senderInfo.seat };
       for (const key of Object.keys(msg)) {
         if (key === 't' || key === 'to') continue;
@@ -292,7 +307,12 @@ function handle(ws, msg) {
  * @returns {WebSocketServer}
  */
 export function startRelay(port = Number(process.env.RELAY_PORT || 8787)) {
-  const wss = new WebSocketServer({ port, host: '0.0.0.0' });
+  const wss = new WebSocketServer({
+    port,
+    host: '0.0.0.0',
+    // 单帧上限：正常对局消息（状态快照/提示）远小于 64KB，防止恶意超大帧占用内存
+    maxPayload: 64 * 1024,
+  });
 
   wss.on('connection', (ws) => {
     ws._room = null;

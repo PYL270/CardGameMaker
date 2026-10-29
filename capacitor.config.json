@@ -1,0 +1,15 @@
+{
+  "appId": "com.cardgamemaker.app",
+  "appName": "CardGameMaker",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  }
+}

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useGameStore from '../../store/gameStore';
 import FontPicker from './FontPicker';
-import MobileApkPanel from './MobileApkPanel';
+import ApkBuilder from './ApkBuilder';
 import MobileNotice from './MobileNotice';
 import Select from '../ui/Select';
 import LayoutSettings from '../GameBoard/LayoutSettings';
@@ -23,6 +23,7 @@ import {
   applyUiPrefs,
 } from '../../utils/uiPrefs';
 import { alertDialog } from '../../utils/dialogService';
+import { loadLLMConfig, saveLLMConfig } from '../../core/secureStore';
 
 export default function Settings({ navigate }) {
   const [layout, setLayout] = useState(() => loadLayout());
@@ -59,11 +60,34 @@ export default function Settings({ navigate }) {
     }
   };
 
-  const [llmConfig, setLlmConfig] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cgm_llm_config') || '{}');
-    } catch { return {}; }
-  });
+  // LLM 配置改为异步加密存储：先渲染空配置，加载/解密完成后回填（apiKey 仅留在内存）
+  const [llmConfig, setLlmConfig] = useState({});
+  const llmConfigRef = useRef({});       // 最新配置快照，避免异步/闭包过期
+  const llmTouchedRef = useRef(false);   // 加载完成前用户是否已开始编辑
+  const llmSaveQueueRef = useRef(Promise.resolve()); // 串行保存，最后一次输入最终落盘
+
+  useEffect(() => {
+    let alive = true;
+    loadLLMConfig()
+      .then(cfg => {
+        if (!alive) return;
+        const loaded = cfg || {};
+        if (!llmTouchedRef.current) {
+          llmConfigRef.current = loaded;
+          setLlmConfig(loaded);
+          return;
+        }
+        // 加载完成前用户已输入：以已加载配置为底、用户输入优先，并补存一次避免丢其它字段
+        const merged = { ...loaded, ...llmConfigRef.current };
+        llmConfigRef.current = merged;
+        setLlmConfig(merged);
+        llmSaveQueueRef.current = llmSaveQueueRef.current
+          .then(() => saveLLMConfig(merged))
+          .catch(err => console.warn('[Settings] 保存 LLM 配置失败', err));
+      })
+      .catch(err => console.warn('[Settings] 读取 LLM 配置失败', err));
+    return () => { alive = false; };
+  }, []);
 
   const [gameConfig, setGameConfig] = useState(() => {
     try {
@@ -84,9 +108,14 @@ export default function Settings({ navigate }) {
   };
 
   const saveLlmConfig = (key, value) => {
-    const newConfig = { ...llmConfig, [key]: value };
-    setLlmConfig(newConfig);
-    localStorage.setItem('cgm_llm_config', JSON.stringify(newConfig));
+    llmTouchedRef.current = true;
+    const next = { ...llmConfigRef.current, [key]: value };
+    llmConfigRef.current = next;
+    setLlmConfig(next);
+    // 异步加密保存（失败时内部降级为明文并 console.warn，不会抛未捕获异常）
+    llmSaveQueueRef.current = llmSaveQueueRef.current
+      .then(() => saveLLMConfig(next))
+      .catch(err => console.warn('[Settings] 保存 LLM 配置失败', err));
   };
 
   const saveGameConfig = (key, value) => {
@@ -259,7 +288,7 @@ export default function Settings({ navigate }) {
           <p className="settings-tip">开启后：受到伤害时屏幕震动、红光闪烁、伤害飘字，并触发设备震动与合成音效。</p>
         </div>
 
-        <MobileApkPanel />
+        <ApkBuilder />
 
         <div className="panel settings-section">
           <h3><Icon name="package" size={16} /><span>数据管理</span></h3>

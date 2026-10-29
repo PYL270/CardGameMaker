@@ -671,11 +671,11 @@ async function main() {
   store.getState().initNet();
   store.setState({ pendingAction: null });
 
-  net.emit('relay', { kind: 'effect', effect: armorEffect });
+  net.emit('relay', { from: 0, kind: 'effect', effect: armorEffect });
   assert(store.getState().effect?.type === 'armor', '客户端收到 armor 效果消息');
   assert(store.getState().effect?.success === false, '客户端保留八卦阵判定失败结果');
 
-  net.emit('relay', { kind: 'prompt', requestId: 'r-confirm', prompt: { type: 'confirm', message: '是否对 你 使用一张【桃】？' } });
+  net.emit('relay', { from: 0, kind: 'prompt', requestId: 'r-confirm', prompt: { type: 'confirm', message: '是否对 你 使用一张【桃】？' } });
   let pa = store.getState().pendingAction;
   assert(pa?.type === 'confirm' && /桃/.test(pa.message || ''), '确认请求路由为确认面板');
   store.getState().resolveAction(false);
@@ -684,7 +684,7 @@ async function main() {
   assert(store.getState().pendingAction === null, '确认后清理 pendingAction（不卡死）');
 
   const legalShan = { id: 'c-shan', name: '闪', suit: 'heart', number: 2, numberDisplay: '2', type: 'basic' };
-  net.emit('relay', { kind: 'prompt', requestId: 'r-respond-1', prompt: { type: 'respond', player: { id: 'p1', name: '你', seatNum: 0 }, cards: [legalShan] } });
+  net.emit('relay', { from: 0, kind: 'prompt', requestId: 'r-respond-1', prompt: { type: 'respond', player: { id: 'p1', name: '你', seatNum: 0 }, cards: [legalShan] } });
   pa = store.getState().pendingAction;
   assert(pa?.type === 'respond' && pa.cards.length === 1, '响应请求只下发合法响应牌');
   store.getState().resolveAction(pa.cards[0]);
@@ -693,7 +693,7 @@ async function main() {
   assert(store.getState().pendingAction === null, '响应后清理 pendingAction');
 
   // 无懈可击链：连续第二次询问必须替换挂起操作，且可再次放弃
-  net.emit('relay', { kind: 'prompt', requestId: 'r-respond-2', prompt: { type: 'respond', player: { id: 'p2', name: '远端', seatNum: 1 }, cards: [] } });
+  net.emit('relay', { from: 0, kind: 'prompt', requestId: 'r-respond-2', prompt: { type: 'respond', player: { id: 'p2', name: '远端', seatNum: 1 }, cards: [] } });
   const pa2 = store.getState().pendingAction;
   assert(pa2?.type === 'respond' && pa2 !== pa, '无懈链第二次询问生成新的 pendingAction');
   assert(Array.isArray(pa2.cards) && pa2.cards.length === 0, '无合法响应牌时 cards 为空（面板可点不使用）');
@@ -703,7 +703,7 @@ async function main() {
   assert(store.getState().pendingAction === null, '连续响应后仍能清理 pendingAction');
 
   net.emit('relay', {
-    kind: 'prompt', requestId: 'r-play-1',
+    from: 0, kind: 'prompt', requestId: 'r-play-1',
     prompt: {
       type: 'play', player: { id: 'p2', name: '远端', seatNum: 1 }, cards: [],
       playableIds: ['c-sha'],
@@ -725,7 +725,7 @@ async function main() {
   assert(store.getState().pendingAction === null, '出牌回执后清理 pendingAction');
 
   const emitPlayPrompt = (requestId) => net.emit('relay', {
-    kind: 'prompt', requestId,
+    from: 0, kind: 'prompt', requestId,
     prompt: {
       type: 'play', player: { id: 'p2', name: '远端', seatNum: 1 }, cards: [],
       playableIds: ['c-sha'], targetsByCard: {},
@@ -742,7 +742,7 @@ async function main() {
   assert(last?.payload?.kind === 'useWeapon' && last.payload.weaponId === 'zhangba', '武器主动技回执发回房主');
 
   net.emit('relay', {
-    kind: 'prompt', requestId: 'r-select',
+    from: 0, kind: 'prompt', requestId: 'r-select',
     prompt: {
       type: 'selectCards', player: { id: 'p2', name: '远端', seatNum: 1 },
       cards: [
@@ -759,7 +759,7 @@ async function main() {
   assert(last?.payload?.kind === 'selectCards' && JSON.stringify(last.payload.cardIds) === JSON.stringify(['c1']), '选牌回执携带 cardIds');
 
   net.emit('relay', {
-    kind: 'prompt', requestId: 'r-target',
+    from: 0, kind: 'prompt', requestId: 'r-target',
     prompt: {
       type: 'chooseTarget', player: { id: 'p2', name: '远端', seatNum: 1 },
       candidates: [{ id: 'p1', name: '你', seatNum: 0 }], hint: '选择目标',
@@ -3688,8 +3688,8 @@ async function main() {
   renderPage('Settings(手机 APK)', React.createElement(Settings, { navigate: noop }),
     ['设置', '手机 APK', '一键打包', '界面增强', '角色卡信息强化', '桌面雕纹', '顶部大字读数']);
   const settingsMobileSrc = readFileSync('src/components/Menu/Settings.jsx', 'utf8');
-  assert(settingsMobileSrc.includes('MobileApkPanel') && settingsMobileSrc.includes('MobileNotice'),
-    'Settings 接入 APK 面板与手机提示');
+  assert(settingsMobileSrc.includes('ApkBuilder') && settingsMobileSrc.includes('MobileNotice'),
+    'Settings 接入一键 APK 面板与手机提示');
   assert(settingsMobileSrc.includes('UI_PREF_ITEMS') && settingsMobileSrc.includes('applyUiPrefs')
     && settingsMobileSrc.includes("'cgm:ui-prefs'"),
   'Settings 接入界面增强偏好并实时广播');
@@ -4392,7 +4392,9 @@ async function main() {
     enabled: false, messages: chatMessages, clientId: 'me',
   })) === '', '弹幕关闭不渲染');
 
-  const boardChatSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8');
+  // 聊天订阅/渲染已拆分到 ChatLayer（性能改造），断言合并 GameBoard + ChatLayer 两个文件的源码
+  const boardChatSrc = readFileSync('src/components/GameBoard/GameBoard.jsx', 'utf8')
+    + readFileSync('src/components/GameBoard/ChatLayer.jsx', 'utf8');
   assert(boardChatSrc.includes('chat-toggle') && boardChatSrc.includes('chat-unread-badge')
     && boardChatSrc.includes('<ChatDock') && boardChatSrc.includes('<DanmakuLayer')
     && boardChatSrc.includes('online.active &&'), 'GameBoard 顶栏聊天入口/未读/面板/弹幕');

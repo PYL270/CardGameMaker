@@ -163,7 +163,7 @@
 ### 2.13 字体、图标与防遮挡布局
 
 - **字体设置**：设置 →「字体设置」可切换墨韵（Ma Shan Zheng）/宋雅/楷雅/隶韵/清黑 5 套方案；`fontManager.js` 写入 `cgm_font_config`，启动时 `applySavedFont()` 恢复；切换只改变 `--font-calligraphy / --font-serif / --font-cn`。
-- **标题字体**：本地 `public/fonts/MaShanZheng-Regular.ttf`（Google Fonts，SIL OFL 免费商用），用于主菜单标题、页面 h1/h2、回合横幅；正文仍用宋体/系统无衬线。
+- **标题字体**：本地 `public/fonts/MaShanZheng-Regular.woff2`（Google Fonts Ma Shan Zheng，SIL OFL 免费商用；构建时由 `scripts/subset-font.mjs` 从 `fonts-src/MaShanZheng-Regular.ttf` 子集化生成，约 550KB），用于主菜单标题、页面 h1/h2、回合横幅；正文仍用宋体/系统无衬线。
 - **防遮挡**：回合横幅移到左上、战斗播报在其下方、日志面板下移；手机端隐藏横幅/播报，避免盖住玩家区。
 - **文字安全**：牌面简注限制 2 行、状态/技能/装备标签不换行、顶栏阶段文字省略号、说明浮层自动收进屏幕。
 - **大气感**：页面细金边框、面板内衬线、金色渐变标题与更大标题字距；主菜单改为 6 列网格组合（开始/联机全宽、编辑器双列、设置三列），避免按钮超出卡片。

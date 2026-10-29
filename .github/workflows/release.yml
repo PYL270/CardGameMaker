@@ -1,0 +1,83 @@
+name: Release
+
+# 打 tag（v1.0.0 这种）就自动构建并发布附件
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  web:
+    name: 网页版
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: 打包（含双击启动脚本）
+        run: |
+          mkdir -p stage
+          cp -r dist/* stage/
+          cp -r desktop/web-launcher/* stage/
+          cd stage && zip -qr ../CardGameMaker-web.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-zip
+          path: CardGameMaker-web.zip
+
+  desktop:
+    name: Windows 免安装版
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npm run build
+      - name: 安装 Electron 打包工具
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: 打包便携版
+        run: node desktop/build-portable.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: win-portable
+          path: release/CardGameMaker-win-x64-portable.zip
+
+  publish:
+    name: 发布 Release
+    needs: [web, desktop]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+
+      - name: 源码包
+        run: |
+          git archive --format=zip --prefix=CardGameMaker-${GITHUB_REF_NAME}/ \
+            -o assets/CardGameMaker-source.zip HEAD
+
+      - name: 创建 Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" assets/*/*.zip assets/*.apk --clobber || true
+          else
+            gh release create "$TAG" assets/*/*.zip \
+              --title "CardGameMaker $TAG" \
+              --generate-notes
+          fi

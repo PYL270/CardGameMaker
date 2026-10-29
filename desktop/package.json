@@ -1,0 +1,16 @@
+{
+  "name": "cardgamemaker-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CardGameMaker 桌面版（Electron）",
+  "main": "main.mjs",
+  "type": "module",
+  "scripts": {
+    "start": "electron .",
+    "pack": "node build-portable.mjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^33.4.11"
+  }
+}

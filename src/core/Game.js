@@ -2046,16 +2046,24 @@ export default class Game extends EventEmitter {
       phase: this.turn.currentPhase,
     };
     this.logs.push(log);
+    // 引擎侧日志上限：整局只增不减会持续占用内存（UI 侧另有 slice(-50)）
+    if (this.logs.length > 500) this.logs.splice(0, this.logs.length - 500);
     if (this.onLog) this.onLog(log);
   }
 
   /**
    * 通知状态变化
+   * 同一个同步执行块（事件循环同一 tick）内的多次通知合并为一次，
+   * 避免 fireTiming 连环触发技能时反复全量构建快照/序列化广播。
    */
   notifyStateChange() {
-    if (this.ui.onStateChange) {
-      this.ui.onStateChange(this.getGameState());
-    }
+    if (!this.ui.onStateChange || this._notifyScheduled) return;
+    this._notifyScheduled = true;
+    queueMicrotask(() => {
+      this._notifyScheduled = false;
+      // 对局可能已在微任务前被销毁/重开（ui 回调已清空）
+      if (this.ui.onStateChange) this.ui.onStateChange(this.getGameState());
+    });
   }
 
   /**

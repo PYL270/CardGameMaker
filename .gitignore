@@ -20,12 +20,35 @@ voice_service/piper/
 voice_refs/test-output.wav
 Thumbs.db
 
-# Android 构建产物 / 本地工具链（体积大，不入库）
-mobile/android/build/
+# Android 构建产物 / 本地工具链（体积大，不入库）mobile/android/build/
 mobile/android/gen/
 mobile/android/assets/www/
 mobile/android/res/
 mobile/android/debug.keystore
 mobile/tools/
 public/apk/*.apk
+
+# Capacitor APK 流水线：构建产物与签名（签名丢失会无法覆盖升级，请单独备份）
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/app/src/main/assets/public/
+android/keystore.properties
+android/keystore/*.jks
+apk-out/
+branding/.icons-state.json
+app-*.ico
+
+# 发布产物 / 桌面版依赖
+release/
+desktop/node_modules/
+docs/screenshots/.browser-profile/
+
+# 旧版移动端工程残留（体积大，APK 走 android/ 或 Release 附件）
+mobile/
+
+# 本地合并笔记
+README-MERGE.md
 

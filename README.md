@@ -1,40 +1,102 @@
-# ⚔️ CardGameMaker · 类三国杀卡牌游戏
+<div align="center">
 
-一个可自定义武将/技能的类三国杀卡牌游戏：内置完整对局引擎、AI、联机、手机适配、三国杀式牌桌与墨玉鎏金视觉。既可以用模板生成，也可以让 AI 生成技能代码。
+<img src="public/icons/app-icon.svg" width="112" alt="CardGameMaker" />
 
-> 详细需求、设计结论与进度见 **[PROJECT_BRIEF.md](PROJECT_BRIEF.md)**；桌面也有交接版设定集。
+# ⚔️ CardGameMaker · 卡牌游戏制作器
+
+**自己造武将 · 自己拼技能 · 坐下就能打**
+
+一个类三国杀的卡牌游戏框架：内置完整对局引擎、AI 对手、局域网联机、模块化技能拼装和 AI 立绘，
+电脑、手机、浏览器都能玩，全部离线可用。
+
+[![在线试玩](https://img.shields.io/badge/%E2%96%B6_%E5%9C%A8%E7%BA%BF%E7%9B%B4%E6%8E%A5%E7%8E%A9-2ea043?style=for-the-badge)](https://pyl270.github.io/CardGameMaker/)
+[![最新版本](https://img.shields.io/github/v/release/PYL270/CardGameMaker?style=for-the-badge&label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=c9a227)](https://github.com/PYL270/CardGameMaker/releases/latest)
+[![下载量](https://img.shields.io/github/downloads/PYL270/CardGameMaker/total?style=for-the-badge&label=%E4%B8%8B%E8%BD%BD%E9%87%8F)](https://github.com/PYL270/CardGameMaker/releases)
+[![Stars](https://img.shields.io/github/stars/PYL270/CardGameMaker?style=for-the-badge&color=c9a227)](https://github.com/PYL270/CardGameMaker/stargazers)
+[![License](https://img.shields.io/badge/%E5%8D%8F%E8%AE%AE-MIT-4c8bf5?style=for-the-badge)](LICENSE)
+
+</div>
 
 ---
 
-## 🚀 快速开始
+## ⬇️ 一键下载
 
-### 方式一：桌面快捷方式（推荐）
+| 平台 | 下载 | 说明 |
+|:--|:--|:--|
+| 🪟 **Windows** | [**免安装版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-win-x64-portable.zip) | 解压双击 `CardGameMaker.exe` 就能玩，自带联机中继，**不用装 Node.js** |
+| 🌐 **网页离线版** | [**网页版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-web.zip) | 解压双击 `启动游戏.bat`，用系统自带 PowerShell 起本地服务，Win/mac/Linux 通用 |
+| 🤖 **安卓** | [**APK 下载**](https://github.com/PYL270/CardGameMaker/releases/latest) | 在最新 Release 的附件里，手机安装即玩，可扫码联机 |
+| 🧑‍💻 **源码** | [**源码包 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-source.zip) | `git archive` 打包，不含依赖与构建产物 |
 
-桌面上的 **CardGameMaker** 快捷方式指向 `D:\CardGameMaker\start.bat`，双击会同时启动：
-- 游戏网页：`http://localhost:3000`
-- 联机中继：`ws://localhost:8787`
-- 自动打开浏览器；启动过程写入 `launcher.log`
+> 连下载都懒得点？直接 **[在线开一局 →](https://pyl270.github.io/CardGameMaker/)** ，浏览器里 3 秒进场，手机也能玩。
 
-### 方式二：`start.bat`
+---
 
-```bat
-D:\CardGameMaker\start.bat
-```
+## 📸 看一眼
 
-脚本会优先使用 PATH 中的 Node.js，其次使用本机 DSH 自带运行时。
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/01-dashboard.jpg" alt="主菜单" /><br /><sub><b>仪表盘式主菜单</b> · 对战 / 创作 / 系统三区</sub></td>
+    <td width="50%"><img src="docs/screenshots/03-board.jpg" alt="对局牌桌" /><br /><sub><b>墨玉鎏金牌桌</b> · 四人对局、军师研判、战局脉搏</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/04-workshop.jpg" alt="武将工坊" /><br /><sub><b>武将 · 卡牌工坊</b> · 左边填表，右边 360×520 实时卡面</sub></td>
+    <td width="50%"><img src="docs/screenshots/05-skills.jpg" alt="技能编辑器" /><br /><sub><b>积木式技能拼装</b> · 时机 / 条件 / 代价 / 效果 / 频率</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/06-online.jpg" alt="联机大厅" /><br /><sub><b>局域网联机</b> · 房间号 + 二维码，扫码即入</sub></td>
+    <td width="50%"><img src="docs/screenshots/08-appearance.jpg" alt="背景与主题" /><br /><sub><b>动态场景 + 主题工坊</b> · 背景、材质、牌背、字体全可换</sub></td>
+  </tr>
+  <tr>
+    <td width="50%" align="center"><img src="docs/screenshots/09-mobile-panel.jpg" width="260" alt="手机版主菜单" /><br /><sub><b>手机版</b> · 图标栏 + 底部面板，44px 触控</sub></td>
+    <td width="50%" align="center"><img src="docs/screenshots/10-mobile-board.jpg" width="260" alt="手机版对局" /><br /><sub><b>手机牌桌</b> · 全宽手牌横滑，横屏双栏</sub></td>
+  </tr>
+</table>
 
-### 方式三：命令行
+---
+
+## ✨ 为什么值得一玩
+
+- **武将和技能都能自己造**：填表 → 实时看到卡面 → 存下来立刻能上场，不用改一行代码。
+- **技能是拼积木拼出来的**：触发时机、发动条件、代价、效果、频率限制五段式组合，自动生成描述与可执行逻辑。
+- **AI 会按局势出牌**：会发动制衡 / 仁德 / 武圣，会贴乐不思蜀、兵粮寸断、闪电，还有「战术军师」给你推荐与胜率研判。
+- **联机只靠一个房间号**：房主开房间，手机扫二维码进局，观战位不占座、只看公共视图。
+- **手机不是缩水版**：独立触控布局、横屏双栏、APK 与浏览器双通道，扫码就能速玩。
+- **离线优先**：字体子集化、音效内置、立绘走免费公开接口，断网也能开一局。
+
+---
+
+## 🚀 三分钟上手
+
+### 玩（不写代码）
+
+1. 下载 **Windows 免安装版** 或 **网页版**（见上表），解压后双击启动。
+2. 主菜单点「开始游戏」→「布阵」可换人数、组队模式和武将。
+3. 手机上直接打开 [在线试玩](https://pyl270.github.io/CardGameMaker/)，或用「速玩」页的二维码扫码开局。
+
+### 改（写代码）
 
 ```bash
-cd D:\CardGameMaker
+git clone https://github.com/PYL270/CardGameMaker.git
+cd CardGameMaker
 npm install
-npm start          # 网页 + 联机中继
-npm run dev        # 只启动网页
-npm run build      # 生产构建到 dist/
-npm run preview    # 本地预览构建产物
+npm start          # 网页 http://localhost:3000 + 联机中继 ws://localhost:8787
+npm run dev        # 只起前端热更新
+npm run build      # 构建到 dist/
 ```
 
-> 需要 Node.js 18+。手机与电脑联机时，电脑和手机需在同一局域网；联机大厅会显示局域网地址与二维码。
+> 需要 Node.js 18+。手机与电脑联机时连同一个局域网即可。
+
+### 发版（维护者）
+
+```bash
+npm run build                        # 先构建
+node scripts/package-release.mjs     # 产出 release/ 下的网页版、便携版、APK、源码包
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+打 tag 后 GitHub Actions 会自动构建网页版 / Windows 便携版 / 源码包并挂到 Release；
+推 `main` 会自动把前端部署到 GitHub Pages。
 
 ---
 
@@ -85,7 +147,7 @@ npm run preview    # 本地预览构建产物
 ## 🗂️ 项目结构
 
 ```text
-D:\CardGameMaker
+CardGameMaker
 ├── src/
 │   ├── core/                    # 引擎：Game / Player / Turn / Deck / Distance / Judgment
 │   ├── data/                    # 经典武将、基础牌堆、牌面说明
@@ -97,10 +159,13 @@ D:\CardGameMaker
 │   ├── store/gameStore.js       # 状态、对局启动/重开、联机、AI 节奏
 │   └── App.css                  # 墨玉鎏金主题与响应式样式
 ├── server/relay.mjs             # WebSocket 中继
-├── scripts/                     # 启动器与自动化测试
+├── scripts/                     # 启动器、发布打包、自动化测试、截图
+├── desktop/                     # Windows 便携版（Electron 主进程 + 打包脚本 + 网页版启动器）
+├── docs/screenshots/            # README 截图
 ├── public/
-│   ├── audio/                   # 内置 BGM
+│   ├── audio/                   # 内置 BGM 与音效
 │   └── fonts/                   # Ma Shan Zheng 标题字体（OFL）
+├── .github/workflows/           # Pages 部署 + Release 自动打包
 ├── start.bat / test.bat
 ├── README.md / PROJECT_BRIEF.md
 └── vite.config.js
@@ -182,7 +247,7 @@ D:\CardGameMaker
 ## 🎨 字体与素材
 
 - 打开 **设置 →「字体设置」**，可切换 5 套方案：墨韵（默认毛笔）、宋雅、楷雅、隶韵、清黑；点击立即预览并保存到本机；
-- 标题字体：**Ma Shan Zheng**（Google Fonts，SIL Open Font License，可免费商用），本地文件 `public/fonts/MaShanZheng-Regular.ttf`；
+- 标题字体：**Ma Shan Zheng**（Google Fonts，SIL Open Font License，可免费商用），构建时子集化为 `public/fonts/MaShanZheng-Regular.woff2`（约 550KB，原始 TTF 在 `fonts-src/`）；
 - 其他方案使用系统宋体/楷体/隶书/无衬线字体，离线可用；
 - 正文：系统宋体/无衬线；卡牌点数、花色保持原辨识度；
 - 卡面/背景为代码或项目素材；内置音乐授权见上节；自定义素材保存在本机浏览器 IndexedDB。

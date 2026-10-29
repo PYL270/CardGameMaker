@@ -124,15 +124,6 @@ export default function Icon({ name, size = 18, className = '' }) {
           <path d="M8.2 9h7.6M8.2 12.2h5.2" />
         </svg>
       );
-    case 'layout':
-      return (
-        <svg {...common}>
-          <rect x="4" y="4" width="7" height="7" rx="1.2" />
-          <rect x="13" y="4" width="7" height="7" rx="1.2" />
-          <rect x="4" y="13" width="7" height="7" rx="1.2" />
-          <rect x="13" y="13" width="7" height="7" rx="1.2" />
-        </svg>
-      );
     case 'refresh':
       return (
         <svg {...common}>

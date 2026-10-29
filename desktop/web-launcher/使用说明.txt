@@ -1,0 +1,20 @@
+CardGameMaker 网页版（离线包）
+================================
+
+这个包里是完整的静态网页游戏，不需要联网，也不需要安装 Node.js。
+
+Windows
+  1. 双击「启动游戏.bat」
+  2. 浏览器会自动打开 http://127.0.0.1:8788/
+  3. 玩的时候不要关掉黑色命令行窗口，关掉就等于关掉了游戏服务
+
+macOS / Linux
+  1. 在终端里执行：sh start.sh
+  2. 浏览器会自动打开 http://127.0.0.1:8788/
+
+说明
+  - 存档保存在浏览器本地（localStorage），换浏览器或清缓存会丢，重要存档请先在「设置」里导出。
+  - 局域网联机需要另外启动中继：装了 Node.js 的话在项目根目录执行 npm run relay，
+    或用 Windows 免安装版（自带中继，端口 8787）。
+  - 想直接在线玩：https://pyl270.github.io/CardGameMaker/
+  - 项目主页：https://github.com/PYL270/CardGameMaker

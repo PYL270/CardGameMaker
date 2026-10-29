@@ -3,13 +3,16 @@
  * 调用外部AI API，根据自然语言描述生成游戏代码
  */
 
+import { loadLLMConfig } from '../../core/secureStore';
+
 /**
- * 从localStorage获取LLM配置
+ * 从加密存储读取LLM配置（自动兼容旧版明文并迁移）
  */
-function getLLMConfig() {
+async function getLLMConfig() {
   try {
-    return JSON.parse(localStorage.getItem('cgm_llm_config') || '{}');
-  } catch {
+    return await loadLLMConfig();
+  } catch (err) {
+    console.warn('[LLMGenerator] 读取 LLM 配置失败，按空配置处理', err);
     return {};
   }
 }
@@ -20,7 +23,7 @@ function getLLMConfig() {
  * @returns {Promise<string>} 生成的代码
  */
 export async function generateLLMCode(prompt) {
-  const config = getLLMConfig();
+  const config = await getLLMConfig();
 
   if (!config.apiKey || !config.apiUrl) {
     // 没有配置API时，使用内置的规则映射+模板生成

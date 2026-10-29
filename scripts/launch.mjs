@@ -11,6 +11,7 @@ import net from 'node:net';
 import { execFile } from 'node:child_process';
 import { appendFileSync } from 'node:fs';
 import { startRelay } from '../server/relay.mjs';
+import { startBuildService } from '../server/build-apk.mjs';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const configFile = fileURLToPath(new URL('../vite.config.js', import.meta.url));
@@ -148,6 +149,14 @@ if (await portInUse(relayPort)) {
     console.warn('[relay] 中继服务器启动失败，联机功能不可用：', e.message);
     logLine(`relay start failed: ${e.message}`);
   }
+}
+
+// APK 构建服务（仅监听 127.0.0.1:8890，供设置页「生成安装包」调用）
+try {
+  startBuildService(Number(process.env.BUILD_PORT || 8890));
+} catch (e) {
+  console.warn('[build] 构建服务启动失败，APK 打包按钮不可用：', e.message);
+  logLine(`build service failed: ${e.message}`);
 }
 
 const server = await createServer({

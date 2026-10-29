@@ -4,6 +4,8 @@
  * 技能三段式: filter → cost → content
  */
 
+import { compileSkillCode } from './safeCode';
+
 export const SKILL_TYPES = {
   ACTIVE: 'active',       // 主动技(出牌阶段发动)
   TRIGGER: 'trigger',     // 触发技(满足条件自动触发)
@@ -120,13 +122,15 @@ export default class Skill {
    * 用于从 JSON 恢复技能时还原逻辑
    */
   applyCode() {
+    // 统一走 safeCode 的校验+编译（黑名单/长度限制），校验不通过时保留默认实现
     const compile = (code, isAsync) => {
       if (!code) return null;
       try {
         return isAsync
-          ? new Function('event', 'trigger', 'player', `return (async () => { ${code} })()`)
-          : new Function('event', 'player', code);
-      } catch {
+          ? compileSkillCode(['event', 'trigger', 'player'], code, { async: true })
+          : compileSkillCode(['event', 'player'], code);
+      } catch (e) {
+        console.warn('技能代码未通过安全校验/编译，已回退默认实现:', e?.message || e);
         return null;
       }
     };

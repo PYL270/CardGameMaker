@@ -6,6 +6,7 @@ import SkillText, { SkillKeywordLegend } from '../ui/SkillText.jsx';
 import Select from '../ui/Select';
 import { skillTypeMeta, normalizeEditorSkillType } from '../ui/skillType';
 import { alertDialog } from '../../utils/dialogService';
+import { compileSkillCode } from '../../core/safeCode';
 
 const SKILL_TYPE_NAMES = {
   active: '主动技', trigger: '触发技', locked: '锁定技',
@@ -278,10 +279,12 @@ export default function SkillEditor({ navigate, context }) {
 
 /**
  * 安全地从代码字符串创建函数
+ * 统一走 safeCode.compileSkillCode：先黑名单/长度校验，再 new Function；
+ * 校验或语法失败时保持原有降级行为（返回安全默认实现）。
  */
 function createFunction(args, code) {
   try {
-    return new Function(...args, code);
+    return compileSkillCode(args, code);
   } catch (e) {
     console.warn('函数创建失败:', e.message);
     return () => true;
@@ -290,7 +293,7 @@ function createFunction(args, code) {
 
 function createAsyncFunction(args, code) {
   try {
-    return new Function(...args, `return (async () => { ${code} })()`);
+    return compileSkillCode(args, code, { async: true });
   } catch (e) {
     console.warn('异步函数创建失败:', e.message);
     return async () => {};

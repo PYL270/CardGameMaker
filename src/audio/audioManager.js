@@ -15,6 +15,8 @@ const CONFIG_KEY = 'cgm_audio_config';
 const DB_NAME = 'cgm_audio_db';
 const DB_VERSION = 1;
 const STORE = 'files';
+// BGM 解码缓存上限：decoded PCM 每首可达几十 MB，仅保留最近 4 首
+const MAX_BGM_BUFFERS = 4;
 
 export const BGM_SLOTS = [
   { key: 'bgm:menu', label: '主菜单背景音乐' },
@@ -474,9 +476,15 @@ class AudioManager {
     }
   }
 
-  /** 加载并解码音频（带缓存与并发去重） */
+  /** 加载并解码音频（带缓存与并发去重；LRU 上限防止解码后的 PCM 撑爆内存） */
   async _loadBuffer(url, ctx) {
-    if (this._bufferCache.has(url)) return this._bufferCache.get(url);
+    if (this._bufferCache.has(url)) {
+      const cached = this._bufferCache.get(url);
+      // LRU：重新插入刷新淘汰顺序
+      this._bufferCache.delete(url);
+      this._bufferCache.set(url, cached);
+      return cached;
+    }
     if (this._bufferPromises.has(url)) return this._bufferPromises.get(url);
     const promise = (async () => {
       const res = await fetch(url);
@@ -485,6 +493,12 @@ class AudioManager {
       const decoded = await ctx.decodeAudioData(raw.slice(0));
       const buffer = /\.mp3(\?|$)/i.test(url) ? trimBufferForLoop(ctx, decoded) : decoded;
       this._bufferCache.set(url, buffer);
+      // 解码后 PCM 每首可达几十 MB，只保留最近几首
+      while (this._bufferCache.size > MAX_BGM_BUFFERS) {
+        const oldest = this._bufferCache.keys().next().value;
+        if (oldest === undefined || oldest === url) break;
+        this._bufferCache.delete(oldest);
+      }
       return buffer;
     })();
     this._bufferPromises.set(url, promise);
