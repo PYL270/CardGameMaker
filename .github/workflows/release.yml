@@ -22,10 +22,10 @@ jobs:
       - run: npm run build
       - name: 打包（含双击启动脚本）
         run: |
-          mkdir -p stage
-          cp -r dist/* stage/
-          cp -r desktop/web-launcher/* stage/
-          cd stage && zip -qr ../CardGameMaker-web.zip .
+          mkdir -p stage/CardGameMaker-web
+          cp -r dist/* stage/CardGameMaker-web/
+          cp -r desktop/web-launcher/* stage/CardGameMaker-web/
+          cd stage && zip -qr ../CardGameMaker-web.zip CardGameMaker-web
       - uses: actions/upload-artifact@v4
         with:
           name: web-zip
@@ -69,15 +69,31 @@ jobs:
           git archive --format=zip --prefix=CardGameMaker-${GITHUB_REF_NAME}/ \
             -o assets/CardGameMaker-source.zip HEAD
 
+      # CI 里没有签名密钥，打不出可安装的 APK：沿用上一个 Release 的 APK，保证下载链接不断
+      - name: 沿用上一版 APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prev=$(gh release list --limit 20 --json tagName --jq '.[].tagName' \
+            | grep -v "^${GITHUB_REF_NAME}$" | head -n 1 || true)
+          if [ -n "$prev" ]; then
+            echo "从 $prev 取 APK"
+            gh release download "$prev" --pattern '*.apk' --dir assets || echo "上一版没有 APK，跳过"
+          else
+            echo "没有更早的 Release，跳过 APK"
+          fi
+
       - name: 创建 Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
+          files=$(find assets -type f \( -name '*.zip' -o -name '*.apk' \) | sort | tr '\n' ' ')
+          echo "附件：$files"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" assets/*/*.zip assets/*.apk --clobber || true
+            gh release upload "$TAG" $files --clobber || true
           else
-            gh release create "$TAG" assets/*/*.zip \
+            gh release create "$TAG" $files \
               --title "CardGameMaker $TAG" \
               --generate-notes
           fi

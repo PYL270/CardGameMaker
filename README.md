@@ -25,7 +25,7 @@
 |:--|:--|:--|
 | 🪟 **Windows** | [**免安装版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-win-x64-portable.zip) | 解压后进入 `CardGameMaker` 文件夹，双击 `CardGameMaker.exe`。自带联机中继，**不用装 Node.js** |
 | 🌐 **网页离线版** | [**网页版 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-web.zip) | 解压后进入 `CardGameMaker-web` 文件夹，双击 `启动游戏.bat`（mac/Linux 跑 `start.sh`），Win/mac/Linux 通用 |
-| 🤖 **安卓** | [**APK 下载**](https://github.com/PYL270/CardGameMaker/releases/latest) | 在最新 Release 的附件里，手机安装即玩，可扫码联机 |
+| 🤖 **安卓** | [**APK 直装包**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-android.apk) | 手机下载后直接安装（需允许「安装未知来源应用」），支持单机对局与联机 |
 | 🧑‍💻 **源码** | [**源码包 .zip**](https://github.com/PYL270/CardGameMaker/releases/latest/download/CardGameMaker-source.zip) | `git archive` 打包，不含依赖与构建产物 |
 
 > 连下载都懒得点？直接 **[在线开一局 →](https://pyl270.github.io/CardGameMaker/)** ，浏览器里 3 秒进场，手机也能玩。
