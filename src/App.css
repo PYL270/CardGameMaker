@@ -7015,3 +7015,32 @@ html[data-theme-studio="on"][data-studio-font="calligraphy"] .game-board .self-n
 @media (prefers-reduced-motion: reduce) {
   .bond-awaken-banner { animation: none !important; opacity: 1; }
 }
+
+/* ===== PWA 安装引导按钮 ===== */
+.cgm-install-btn {
+  position: fixed;
+  right: max(10px, env(safe-area-inset-right, 0px));
+  bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  z-index: 300;
+  padding: 10px 14px;
+  min-height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(214, 185, 110, 0.45);
+  background: linear-gradient(160deg, rgba(23, 26, 33, 0.97), rgba(8, 10, 14, 0.98));
+  color: #f5df9d;
+  font-size: 12px;
+  font-family: inherit;
+}
+.cgm-install-btn:active { transform: scale(0.96); }
+.cgm-install-btn-text { pointer-events: none; }
+
+/* ===== 手机横屏：编辑器 / 代码生成 / 设置 / 大厅页跟进压版 ===== */
+@media (orientation: landscape) and (max-height: 560px) {
+  [data-platform="mobile"] .settings-page { padding: 8px; }
+  [data-platform="mobile"] .skill-editor { padding: 8px; overflow-y: auto; height: 100%; }
+  [data-platform="mobile"] .code-preview-page { padding: 8px; overflow-y: auto; height: 100%; }
+  [data-platform="mobile"] .online-page { overflow-y: auto; height: 100%; }
+  [data-platform="mobile"] .online-layout { flex-direction: column !important; }
+  [data-platform="mobile"] .online-main { min-height: 0; }
+  [data-platform="mobile"] .online-aside { display: none; }
+}

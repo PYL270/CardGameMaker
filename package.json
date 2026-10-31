@@ -1,7 +1,7 @@
 {
   "name": "card-game-maker",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "类三国杀卡牌游戏框架 - 可自定义武将和技能，AI辅助生成代码",
   "type": "module",
   "scripts": {

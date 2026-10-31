@@ -1,0 +1,34 @@
+{
+  "version": "1.0.2",
+  "versionName": "1.0.2+b20261031194933",
+  "versionCode": 1793447373,
+  "file": "CardGameMaker-latest.apk",
+  "size": 19060245,
+  "url": "/apk/CardGameMaker-latest.apk",
+  "sha256": "9ba178bbd90d71cca3c65143be54465291268649af5c8ea2dde4200fa2c0f5dc",
+  "builtAt": "2026-10-31T11:49:33.046Z",
+  "package": "com.cardgamemaker.app",
+  "label": "卡牌游戏制作器",
+  "minSdk": 24,
+  "targetSdk": 34,
+  "badging": {
+    "packageName": "com.cardgamemaker.app",
+    "versionCode": "1793447373",
+    "versionName": "1.0.2+b20261031194933",
+    "label": "卡牌游戏制作器",
+    "minSdk": "24",
+    "targetSdk": "34"
+  },
+  "signatureVerified": true,
+  "stableUrl": "/apk/CardGameMaker-latest.apk",
+  "history": [
+    {
+      "file": "CardGameMaker-latest.apk",
+      "versionName": "1.0.2+b20261031194933",
+      "size": 19060245,
+      "builtAt": "2026-10-31T11:49:33.046Z",
+      "url": "/apk/CardGameMaker-latest.apk",
+      "sha256": "9ba178bbd90d71cca3c65143be54465291268649af5c8ea2dde4200fa2c0f5dc"
+    }
+  ]
+}

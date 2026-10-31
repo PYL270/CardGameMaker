@@ -136,6 +136,30 @@ export default function App() {
     }
   }, [onlineActive]);
 
+  // PWA 安装引导：仅在 beforeinstallprompt 可用时展示安装按钮
+  const [installPrompt, setInstallPrompt] = useState(null);
+  useEffect(() => {
+    const onBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    const onAppInstalled = () => setInstallPrompt(null);
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    window.addEventListener('appinstalled', onAppInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', onAppInstalled);
+    };
+  }, []);
+
+  const installApp = async () => {
+    if (!installPrompt) return;
+    try {
+      const result = await installPrompt.prompt();
+      if (result && result.outcome === 'accepted') setInstallPrompt(null);
+    } catch { /* 用户取消 / 不支持 */ }
+  };
+
   // 背景音乐场景：对局用对局 BGM，其余页面用主菜单 BGM
   useEffect(() => {
     audio.setScene(currentPage === PAGES.GAME ? 'game' : 'menu');
@@ -250,6 +274,11 @@ export default function App() {
       </div>
       <FxLayer queue={previewFxQueue} onShift={() => setPreviewFxQueue(q => shiftFx(q))} />
       <GameDialog />
+      {installPrompt && (
+        <button type="button" className="cgm-install-btn" onClick={installApp} aria-label="安装卡牌游戏">
+          <span className="cgm-install-btn-text">安装到设备</span>
+        </button>
+      )}
       {quickNotice && (
         <div className="quick-notice" role="status">
           <span className="quick-notice-dot" aria-hidden="true" />
