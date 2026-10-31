@@ -846,6 +846,56 @@ export default function MainMenu({ navigate }) {
           .mm-hero { min-height: 104px; }
           .mm-tile, .mm-plate { min-height: 66px; }
         }
+        /* 手机横屏：一屏放下主菜单，去掉大留白与装饰牌 */
+        @media (orientation: landscape) and (max-height: 560px) {
+          .mm-stage {
+            gap: 6px;
+            padding: 8px 14px;
+            overflow-y: auto;
+          }
+          .mm-head { padding-bottom: 6px; gap: 10px; }
+          .mm-brand { gap: 10px; }
+          .mm-crest { width: 36px; height: 36px; }
+          .mm-brand-text h1 { font-size: 20px; letter-spacing: 1px; }
+          .mm-brand-sub { display: none; }
+          .mm-badge { font-size: 10px; padding: 2px 8px; }
+          .mm-head-right .mm-version { display: none; }
+          .mm-deck { justify-content: safe center; gap: 6px; }
+          .mm-band { gap: 4px; }
+          .mm-band-head { height: 14px; gap: 6px; }
+          .mm-index { font-size: 13px; }
+          .mm-band-label { font-size: 10px; letter-spacing: 3px; }
+          .mm-band-hint { display: none; }
+          .mm-mini { font-size: 10px; padding: 1px 7px; letter-spacing: 1px; }
+          .mm-grid { gap: 6px; }
+          .mm-hero {
+            grid-column: span 6;
+            min-height: 0;
+            padding: 8px 12px;
+            gap: 10px;
+            border-radius: 12px;
+          }
+          .mm-tile.mm-span-3 { grid-column: span 3; }
+          .mm-hero-icon { width: 38px; height: 38px; }
+          .mm-hero-icon .ui-icon { width: 22px; height: 22px; }
+          .mm-hero-title { font-size: 20px; letter-spacing: 2px; }
+          .mm-hero-desc { font-size: 10px; }
+          .mm-hero-key { display: none; }
+          .mm-tile { min-height: 44px; padding: 5px 8px; gap: 8px; border-radius: 10px; }
+          .mm-tile-icon { width: 28px; height: 28px; border-radius: 8px; }
+          .mm-tile-icon .ui-icon { width: 15px; height: 15px; }
+          .mm-tile-text b { font-size: 12px; }
+          .mm-tile-text em { font-size: 9px; }
+          .mm-tile-go { display: none; }
+          .mm-plate { display: none; }
+          .mm-foot { display: none; }
+          .mobile-capability-notice.compact { margin-top: 0; padding: 4px 8px; }
+          .mobile-capability-notice.compact .mobile-notice-head { margin-bottom: 0; }
+          .mobile-capability-notice.compact .mobile-notice-head strong { font-size: 10.5px; }
+          .mobile-capability-notice.compact .mobile-notice-summary,
+          .mobile-capability-notice.compact .mobile-limit-list { display: none; }
+          .mobile-capability-notice.compact .mobile-version-badge { font-size: 8px; padding: 0 5px; }
+        }
 
         /* ===== 品牌徽记动画（沿用原视觉语言） ===== */
         @keyframes crestSpin { to { transform: rotate(360deg); } }

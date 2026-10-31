@@ -22,7 +22,7 @@ export function toggleFangtianTarget(list, target, max = 3) {
 /**
  * 可拖动外壳：按住提示面板拖动可挪开，避免遮挡
  */
-function DraggableShell({ drag, children }) {
+function DraggableShell({ drag, minWidth = 340, maxWidth = 520, children }) {
   return (
     <div
       className={`action-panel panel ${drag.dragging ? 'dragging-panel' : ''}`}
@@ -39,10 +39,16 @@ function DraggableShell({ drag, children }) {
         touchAction: drag.dragging ? 'none' : 'pan-y',
         userSelect: 'none',
         cursor: drag.dragging ? 'grabbing' : 'grab',
+        '--ap-min': `${minWidth}px`,
+        '--ap-max': `${maxWidth}px`,
       }}>
       {children}
-      {/* 窄屏下面板可滚动：保证「确认/不使用」等按钮不会被 max-height 挡住 */}
+      {/* 各分支只设置 --ap-min/--ap-max，尺寸规则在这里统一维护 */}
       <style>{`
+        .action-panel {
+          min-width: var(--ap-min, 340px);
+          max-width: var(--ap-max, 520px);
+        }
         @media (max-width: 720px) {
           .action-panel { touch-action: pan-y !important; }
         }
@@ -229,7 +235,7 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
     const canFangtian = multiMode && validTargets.length > 1;
 
     return (
-      <DraggableShell drag={drag}>
+      <DraggableShell drag={drag} minWidth={400}>
         <h3>出牌阶段</h3>
         <p className="action-hint">
           从下方手牌中选择一张牌
@@ -344,7 +350,6 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         </div>
 
         <style>{`
-          .action-panel { min-width: 400px; max-width: 520px; }
           .action-panel h3 { color: var(--accent-gold); margin-bottom: 8px; }
           .action-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
           .recommend-hint { font-size: 12.5px; color: var(--text-secondary); margin: -4px 0 10px; }
@@ -365,7 +370,7 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
   // 弃牌阶段
   if (type === 'discard') {
     return (
-      <DraggableShell drag={drag}>
+      <DraggableShell drag={drag} minWidth={380}>
         <h3>弃牌阶段</h3>
         <p className="action-hint">
           从下方手牌选择 {count} 张弃置（已选 {selectedCards.length}/{count}）
@@ -381,7 +386,6 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         </div>
 
         <style>{`
-          .action-panel { min-width: 380px; max-width: 520px; }
           .action-panel h3 { color: var(--accent-gold); margin-bottom: 8px; }
           .action-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
           .action-buttons { display: flex; gap: 10px; }
@@ -400,7 +404,7 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         : null);
     const noLegal = Array.isArray(legalCards) && legalCards.length === 0;
     return (
-      <DraggableShell drag={drag}>
+      <DraggableShell drag={drag} minWidth={380}>
         <h3>响应请求</h3>
         <p className="action-hint">
           {noLegal
@@ -424,7 +428,6 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         </div>
 
         <style>{`
-          .action-panel { min-width: 380px; max-width: 520px; }
           .action-panel h3 { color: var(--accent-gold); margin-bottom: 8px; }
           .action-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
           .action-buttons { display: flex; gap: 10px; }
@@ -449,7 +452,6 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         </div>
 
         <style>{`
-          .action-panel { min-width: 340px; max-width: 520px; }
           .action-panel h3 { color: var(--accent-gold); margin-bottom: 8px; }
           .action-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
           .action-buttons { display: flex; gap: 10px; }
@@ -474,7 +476,7 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
     const canConfirm = selectedCards.length >= min && selectedCards.length <= max;
 
     return (
-      <DraggableShell drag={drag}>
+      <DraggableShell drag={drag} minWidth={420} maxWidth={560}>
         <h3>选择手牌</h3>
         <p className="action-hint">
           {action.hint || `请选择 ${min}~${max} 张手牌`}（已选 {selectedCards.length}）
@@ -509,7 +511,6 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         </div>
 
         <style>{`
-          .action-panel { min-width: 420px; max-width: 560px; }
           .action-panel h3 { color: var(--accent-gold); margin-bottom: 8px; }
           .action-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
           .hand-selection { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
@@ -552,7 +553,6 @@ export default function ActionPanel({ action, onResolve, selectedCards, setSelec
         </div>
 
         <style>{`
-          .action-panel { min-width: 340px; max-width: 520px; }
           .action-panel h3 { color: var(--accent-gold); margin-bottom: 8px; }
           .action-hint { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
           .target-list { display: flex; gap: 6px; flex-wrap: wrap; }

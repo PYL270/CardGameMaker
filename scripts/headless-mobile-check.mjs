@@ -115,7 +115,71 @@ async function main() {
   assert(await noOverflow(), '操作后仍无横向溢出');
   await screenshot('D:/CardGameMaker/test-mobile-board2.png');
 
-  console.log('\n[4] 手机联机大厅与扫码');
+  console.log('\n[4] 手机横屏 844×390');
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 844, height: 390, deviceScaleFactor: 2, mobile: true,
+  });
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  await reload();
+  text = await body();
+  assert(text.includes('CardGameMaker'), '横屏主菜单渲染');
+  assert(
+    await evaluate("document.querySelector('.app')?.dataset.platform === 'mobile'"),
+    '横屏判定为 mobile'
+  );
+  assert(await noOverflow(), '横屏主菜单无横向溢出');
+  const heroRect = await evaluate(`(() => {
+    const el = document.querySelector('.mm-hero');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom) };
+  })()`);
+  assert(
+    !!heroRect && heroRect.top >= 0 && heroRect.bottom <= 390,
+    '横屏主菜单首屏可见',
+    JSON.stringify(heroRect)
+  );
+  await screenshot('D:/CardGameMaker/test-mobile-landscape-menu.png');
+
+  assert(await clickText('开始游戏'), '横屏点击开始游戏');
+  await sleep(1000);
+  assert(await clickText('开始对局'), '横屏点击开始对局');
+  await sleep(2600);
+  text = await body();
+  assert(text.includes('回合') && text.includes('牌堆'), '横屏进入对局');
+  assert(await noOverflow(), '横屏对局无横向溢出');
+
+  const boardScroll = await evaluate(`(() => {
+    const el = document.querySelector('.board-main');
+    return el ? el.scrollHeight - el.clientHeight : -1;
+  })()`);
+  assert(boardScroll >= 0 && boardScroll <= 2, '横屏牌桌无纵向滚动', `diff=${boardScroll}`);
+
+  const panelRect = await evaluate(`(() => {
+    const el = document.querySelector('.action-panel');
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width) };
+  })()`);
+  assert(
+    !!panelRect && panelRect.top >= 0 && panelRect.left >= 0 &&
+      panelRect.bottom <= 390 && panelRect.right <= 844,
+    '横屏操作面板完整可见',
+    JSON.stringify(panelRect)
+  );
+
+  const landscapeHandW = await evaluate(
+    "Math.round(document.querySelector('.hand-cards')?.getBoundingClientRect().width || 0)"
+  );
+  assert(landscapeHandW > 300, '横屏手牌区宽度充足', `w=${landscapeHandW}`);
+  await screenshot('D:/CardGameMaker/test-mobile-landscape-board.png');
+
+  // 回到竖屏，继续后面的联机用例
+  await send('Emulation.setDeviceMetricsOverride', {
+    width: 390, height: 844, deviceScaleFactor: 2, mobile: true,
+  });
+
+  console.log('\n[5] 手机联机大厅与扫码');
   await reload();
   assert(await clickText('联机对战'), '进入联机大厅');
   await sleep(800);

@@ -45,7 +45,8 @@ import {
 } from '../src/utils/mobile.js';
 import AudioSettings from '../src/components/Menu/AudioSettings.jsx';
 import AppearanceSettings from '../src/components/Menu/AppearanceSettings.jsx';
-import GameBoard, { handHintFor, SetupPanel } from '../src/components/GameBoard/GameBoard.jsx';
+import GameBoard, { SetupPanel } from '../src/components/GameBoard/GameBoard.jsx';
+import { handHintFor } from '../src/utils/handHint.js';
 import LayoutSettings from '../src/components/GameBoard/LayoutSettings.jsx';
 import {
   PRESET_SETTINGS,

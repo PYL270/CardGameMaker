@@ -88,6 +88,13 @@ export default function usePanelDrag(name) {
 
   api.current.down = (e) => {
     if (e.button !== undefined && e.button !== 0) return;
+    // 触屏设备不启用面板拖拽：手机横屏下面板是 fixed 定位，拖走后容易跑到屏幕外，
+    // 且拖动会与手牌/页面滚动抢手势。桌面端保持原有拖拽能力。
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return;
+    } catch {
+      // matchMedia 不可用时按桌面处理
+    }
     // 按钮/输入框等交互元素上不启动拖拽
     if (e.target.closest && e.target.closest('button, input, select, textarea, a, [data-no-drag]')) return;
     session.current = {
@@ -120,6 +127,13 @@ export default function usePanelDrag(name) {
     const handler = () => reset();
     window.addEventListener('cgm:reset-layout', handler);
     return () => window.removeEventListener('cgm:reset-layout', handler);
+  }, [storageKey]);
+
+  // 旋转屏幕/尺寸大幅变化后复位：避免上次保存的位移把 fixed 面板推出可视区
+  useEffect(() => {
+    const handler = () => reset();
+    window.addEventListener('orientationchange', handler);
+    return () => window.removeEventListener('orientationchange', handler);
   }, [storageKey]);
 
   // 卸载兜底清理

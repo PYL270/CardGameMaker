@@ -101,6 +101,10 @@ export function getPlatform(scope = globalThis) {
     // 手机横屏（如 844×390）：宽 >760 但高度明显偏矮
     if (width > 0 && height > 0 && width <= 900 && height <= 500) return 'mobile';
     if (width > 0 && width <= 900 && isTouchInput(root)) return 'mobile';
+    // 大屏手机横屏（如 915×412、932×430）：宽超过 900 但高度很矮且为触屏
+    if (width > 0 && height > 0 && height <= 600 && width <= 1100 && isTouchInput(root)) {
+      return 'mobile';
+    }
   } catch {
     // ignore
   }

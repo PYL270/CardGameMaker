@@ -21,6 +21,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { wavToMono } from './wav-to-mono.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const ROOT = path.resolve(__dirname, '..');
@@ -290,15 +291,30 @@ function prepareAssets() {
     recursive: true,
     filter: (src) => {
       const rel = path.relative(dist, src);
-      return rel !== 'apk' && !rel.startsWith(`apk${path.sep}`);
+      if (rel === 'apk' || rel.startsWith(`apk${path.sep}`)) return false;
+      // 网页 / PWA 都没引用 .ico，只留给桌面端，APK 里不带
+      if (rel.toLowerCase().endsWith('.ico')) return false;
+      return true;
     },
   });
   // 防止递归打包：vite build 会把 public/ 原样复制到 dist，其中 public/apk 里的旧 APK/latest.json
   // 不应再被塞进新 APK 的 assets；复制时已过滤，这里再兜底清理一次。
   fs.rmSync(path.join(WWW_DIR, 'apk'), { recursive: true, force: true });
+
+  // 背景音乐 WAV 是 22.05kHz 双声道 16-bit，APK 里降成单声道可省约 2.3MB，听感几乎无差别
+  for (const name of ['bgm-shanhe.wav', 'bgm-zhangu.wav']) {
+    const file = path.join(WWW_DIR, 'audio', name);
+    if (!fs.existsSync(file)) continue;
+    const before = fs.statSync(file).size;
+    const mono = wavToMono(fs.readFileSync(file));
+    if (!mono) continue;
+    fs.writeFileSync(file, mono);
+    log(`音频瘦身 ${name}: ${(before / 1024 / 1024).toFixed(2)}MB → ${(mono.length / 1024 / 1024).toFixed(2)}MB`);
+  }
+
   // 确保 audio 等 public 资源存在（vite build 已复制 public/ 到 dist）
   const count = walkFiles(WWW_DIR, null).length;
-  log(`Vite 产物已复制到 assets/www（${count} 个文件，已排除 apk/）`);
+  log(`Vite 产物已复制到 assets/www（${count} 个文件，已排除 apk/ 与 .ico）`);
 }
 
 function prepareResources() {

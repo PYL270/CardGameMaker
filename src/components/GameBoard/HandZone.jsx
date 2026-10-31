@@ -145,6 +145,13 @@ export default function HandZone({
   const flipTimer = useRef(null);     // FLIP 内联样式清理计时
   const animTimer = useRef(null);     // 按钮禁用/动画状态计时
   const shineTimer = useRef(null);    // 扫光移除计时
+  const pressTimer = useRef(null);    // 手机长按看牌计时
+  const clearPressTimer = () => {
+    if (pressTimer.current) {
+      clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
 
   const stableMove = useRef(null);
   const stableUp = useRef(null);
@@ -158,11 +165,13 @@ export default function HandZone({
     const dy = e.clientY - d.y0;
     if (!d.moved && Math.hypot(dx, dy) < HAND_DRAG_THRESHOLD) return;
     d.moved = true;
+    clearPressTimer(); // 手指移动后不再触发长按看牌
     if (e.cancelable) e.preventDefault();
     setOffsets(prev => ({ ...prev, [d.id]: { x: d.bx + dx, y: d.by + dy } }));
   };
 
   api.current.up = () => {
+    clearPressTimer();
     const d = drag.current;
     if (!d) return;
     drag.current = null;
@@ -196,6 +205,34 @@ export default function HandZone({
     window.addEventListener('pointermove', stableMove.current, { passive: false });
     window.addEventListener('pointerup', stableUp.current);
     window.addEventListener('pointercancel', stableUp.current);
+
+    // 手机端长按看牌：480ms 未移动则弹出卡牌说明，避免小屏卡面文字看不清。
+    clearPressTimer();
+    if (e.pointerType === 'touch' && onInfo) {
+      const el = e.currentTarget;
+      pressTimer.current = setTimeout(() => {
+        pressTimer.current = null;
+        const active = drag.current;
+        if (!active || active.moved) return;
+        // 结束本次拖拽会话，后续 pointerup 不再处理
+        drag.current = null;
+        window.removeEventListener('pointermove', stableMove.current);
+        window.removeEventListener('pointerup', stableUp.current);
+        window.removeEventListener('pointercancel', stableUp.current);
+        setDragId(null);
+        // 吞掉长按后触发的 click / contextmenu，避免误选牌或重复弹窗
+        suppressClick.current = true;
+        if (suppressTimer.current) clearTimeout(suppressTimer.current);
+        suppressTimer.current = setTimeout(() => {
+          suppressClick.current = false;
+        }, 450);
+        const info = getCardText(card.name);
+        onInfo(
+          { title: card.name, desc: info.detail || info.brief || '暂无说明' },
+          { currentTarget: el },
+        );
+      }, 480);
+    }
   };
 
   // 手牌变化时，清理已不存在的手动位置
@@ -236,6 +273,7 @@ export default function HandZone({
     if (shineTimer.current) clearTimeout(shineTimer.current);
     if (animTimer.current) clearTimeout(animTimer.current);
     if (suppressTimer.current) clearTimeout(suppressTimer.current);
+    clearPressTimer();
   }, []);
 
   // FLIP：DOM 重排后计算旧/新位置差，先落到旧位置再过渡回新位置
@@ -472,6 +510,8 @@ export default function HandZone({
                 onContextMenu={onInfo
                   ? (e) => {
                     e.preventDefault();
+                    // 长按看牌已经弹过说明时，吞掉紧随其后的 contextmenu
+                    if (suppressClick.current) return;
                     onInfo({
                       title: `${card.name}`,
                       desc: info.detail || info.brief || '暂无说明',
